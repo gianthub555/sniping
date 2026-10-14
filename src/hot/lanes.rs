@@ -483,7 +483,17 @@ pub struct HttpLane {
     conns: Arc<[Conn; 2]>,
     next: usize,
     buf: Vec<u8>,
+    /// The provider's per-second limit on transactions (0: none) and the lane it counts for.
+    limit: usize,
+    lane: usize,
+    /// The write times of the last `limit` transactions, oldest first, a ring.
+    recent: [u64; LIMIT_MAX],
+    recent_head: usize,
+    recent_len: usize,
 }
+
+/// The largest per-second limit a plain-HTTP lane keeps count of.
+const LIMIT_MAX: usize = 16;
 
 const JSON_HEAD: &[u8] = br#"{"jsonrpc":"2.0","id":1,"method":"sendTransaction","params":[""#;
 const JSON_TAIL: &[u8] = br#"",{"encoding":"base64","skipPreflight":true,"maxRetries":0}]}"#;
@@ -504,13 +514,48 @@ fn push_number(buf: &mut Vec<u8>, mut n: usize) {
 
 impl HttpLane {
     fn new(target: HttpTarget) -> Self {
-        HttpLane { target: Arc::new(target), conns: Arc::new([Conn::new(), Conn::new()]), next: 0, buf: Vec::with_capacity(4096) }
+        HttpLane {
+            target: Arc::new(target),
+            conns: Arc::new([Conn::new(), Conn::new()]),
+            next: 0,
+            buf: Vec::with_capacity(4096),
+            limit: 0,
+            lane: 0,
+            recent: [0; LIMIT_MAX],
+            recent_head: 0,
+            recent_len: 0,
+        }
+    }
+
+    /// At most `per_sec` transactions in any second on `lane` (at most `LIMIT_MAX`); a copy over
+    /// it is not written and counts in `counters::LIMITED`, as on the threaded lanes.
+    fn with_limit(mut self, lane: usize, per_sec: usize) -> Self {
+        self.lane = lane;
+        self.limit = per_sec.min(LIMIT_MAX);
+        self
+    }
+
+    /// Room under the per-second limit now (and the window's old writes forgotten).
+    #[inline]
+    fn room(&mut self, now: u64) -> bool {
+        if self.limit == 0 {
+            return true;
+        }
+        while self.recent_len > 0 && now.saturating_sub(self.recent[self.recent_head]) >= 1_000_000_000 {
+            self.recent_head = (self.recent_head + 1) % LIMIT_MAX;
+            self.recent_len -= 1;
+        }
+        self.recent_len < self.limit
     }
 
     /// Writes one request carrying `b64`. Never allocates (the buffer is reserved). The write's
     /// clock reading when a connection took the bytes.
     #[inline]
     pub fn send(&mut self, b64: &[u8]) -> Option<u64> {
+        if !self.room(now_ns()) {
+            counters::LIMITED[self.lane].fetch_add(1, Ordering::Relaxed);
+            return None;
+        }
         let t = &*self.target;
         let body_len = match t.body {
             Body::Text => b64.len(),
@@ -545,6 +590,14 @@ impl HttpLane {
                     st.push(t, false);
                     conn.last_write.store(t, Ordering::Relaxed);
                     self.next = (self.next + attempt + 1) % 2;
+                    if self.limit > 0 {
+                        if self.recent_len == LIMIT_MAX {
+                            self.recent_head = (self.recent_head + 1) % LIMIT_MAX;
+                            self.recent_len -= 1;
+                        }
+                        self.recent[(self.recent_head + self.recent_len) % LIMIT_MAX] = t;
+                        self.recent_len += 1;
+                    }
                     return Some(t);
                 }
                 // The I/O thread reconnects it (and counts its unanswered requests as lost).
@@ -1377,6 +1430,14 @@ pub struct Lanes {
     pub fired: Vec<usize>,
 }
 
+/// Everstake's per-second request limit (pings included).
+const EVERSTAKE_PER_SEC: usize = 10;
+
+/// HOT_EVERSTAKE_DIRECT=true: Everstake as a plain-HTTP lane (read once, at the lanes' start).
+fn everstake_direct() -> bool {
+    env_opt("HOT_EVERSTAKE_DIRECT").is_some_and(|v| v.eq_ignore_ascii_case("true"))
+}
+
 /// The ping a plain-HTTP lane sends while idle, and how often.
 fn http_ping(lane: usize) -> (&'static str, u64) {
     match lane {
@@ -1451,11 +1512,27 @@ impl Lanes {
                     spawn("jito", Box::new(move || https_thread(lane, HttpsKind::Jito, url, header, ping, Duration::from_secs(15), false, 0, rx, wake, awake)));
                     Some(Driver::Ring(r))
                 }
+                // HOT_EVERSTAKE_DIRECT=true: Everstake as a plain-HTTP lane, written by the decision
+                // thread on a kept-alive HTTP/1.1 connection like 0slot (its endpoint answers
+                // HTTP/1.1, checked 14 Oct), under its 10/s limit less one for the keep-alive ping.
+                // The threaded reqwest lane below took ~105 us (p99 1.1 ms) from the hand-over to
+                // the write (Frankfurt paper run, 14 Oct); 0slot's direct write ~50 us.
+                LANE_EVERSTAKE if everstake_direct() && url.starts_with("http://") => match parse_http(&url) {
+                    Some((host, port, path)) => {
+                        let (ping, every) = http_ping(lane);
+                        let l = HttpLane::new(HttpTarget { name: LANE_NAMES[lane], host, port, path, body: Body::JsonRpc, ping: ping.into(), ping_every_ns: every })
+                            .with_limit(lane, EVERSTAKE_PER_SEC - 1);
+                        info!("hot lane everstake: direct plain-HTTP writes from the decision thread (HOT_EVERSTAKE_DIRECT)");
+                        http_io.push((lane, l.target.clone(), l.conns.clone()));
+                        Some(Driver::Http(l))
+                    }
+                    None => None,
+                },
                 LANE_EVERSTAKE => {
                     let (r, rx, wake, awake) = ring();
                     // No health route: a getHealth (answered "method not found") times the connection.
                     let ping = (reqwest::Method::POST, url.clone(), Some(serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "getHealth"})));
-                    spawn("everstake", Box::new(move || https_thread(lane, HttpsKind::JsonRpc, url, None, ping, Duration::from_secs(10), true, 10, rx, wake, awake)));
+                    spawn("everstake", Box::new(move || https_thread(lane, HttpsKind::JsonRpc, url, None, ping, Duration::from_secs(10), true, EVERSTAKE_PER_SEC, rx, wake, awake)));
                     Some(Driver::Ring(r))
                 }
                 LANE_TRITON if url.starts_with("https://") => {
@@ -1965,5 +2042,49 @@ mod tests {
         lanes[LANE_EVERSTAKE] = LaneSpec { tip_accounts: &[], ..everstake(1_000_000) };
         settle(&mut lanes);
         assert_eq!(lanes[LANE_EVERSTAKE].off_because.as_deref(), Some("no LANE_EVERSTAKE_TIP_ACCOUNTS"));
+    }
+
+    #[test]
+    fn a_plain_http_lane_over_its_per_second_limit_skips_the_copy_and_counts_it() {
+        use std::net::TcpListener;
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        let mut h = HttpLane::new(HttpTarget { name: "triton", host: "127.0.0.1".into(), port, path: "/".into(), body: Body::JsonRpc, ping: "/".into(), ping_every_ns: u64::MAX })
+            .with_limit(LANE_TRITON, 3);
+        for c in h.conns.iter() {
+            c.lock().reset(Some(TcpStream::connect(("127.0.0.1", port)).unwrap()));
+        }
+        let before = counters::LIMITED[LANE_TRITON].load(Ordering::Relaxed);
+        for i in 0..3 {
+            assert!(h.send(b"AAAA").is_some(), "write {i} is under the limit");
+        }
+        assert!(h.send(b"AAAA").is_none(), "the fourth in the same second is over it");
+        assert!(counters::LIMITED[LANE_TRITON].load(Ordering::Relaxed) > before, "counted as limited");
+        // A second later the window has room again.
+        let now = now_ns() + 1_000_000_001;
+        assert!(h.room(now));
+    }
+
+    #[test]
+    fn everstakes_direct_request_carries_the_threaded_lanes_json() {
+        use std::{io::Read, net::TcpListener};
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        let mut h = HttpLane::new(HttpTarget { name: "everstake", host: "fra-swqos.everstake.one".into(), port, path: "/".into(), body: Body::JsonRpc, ping: "/".into(), ping_every_ns: u64::MAX })
+            .with_limit(LANE_EVERSTAKE, EVERSTAKE_PER_SEC - 1);
+        h.conns[0].lock().reset(Some(TcpStream::connect(("127.0.0.1", port)).unwrap()));
+        let (mut server, _) = l.accept().unwrap();
+        let b64 = "AQIDBAUGBwg=";
+        assert!(h.send(b64.as_bytes()).is_some());
+        let mut got = vec![0u8; 4096];
+        server.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let n = server.read(&mut got).unwrap();
+        let text = String::from_utf8_lossy(&got[..n]).to_string();
+        let (head, body) = text.split_once("\r\n\r\n").expect("a complete request");
+        assert!(head.starts_with("POST / HTTP/1.1\r\nHost: fra-swqos.everstake.one\r\n"), "{head}");
+        assert!(head.contains(&format!("Content-Length: {}", body.len())), "{head}");
+        let sent: serde_json::Value = serde_json::from_str(body).expect("JSON body");
+        let threaded = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "sendTransaction", "params": [b64, {"encoding": "base64", "skipPreflight": true, "maxRetries": 0}]});
+        assert_eq!(sent, threaded, "the same request as the threaded lane sent");
     }
 }
