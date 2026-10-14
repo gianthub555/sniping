@@ -242,7 +242,7 @@ pub(crate) fn frame(bytes: &[u8]) -> bool {
             PRE_CREATE_LEADS_MS.lock().unwrap_or_else(|e| e.into_inner()).push(lead_ms);
             info!(
                 "PRE-CREATE {mint}: named {lead_ms:.1} ms before its create by a transaction of {by} (slot {by_slot}, create slot {slot}{})",
-                if by == crate::config::rules::REFERENCE_WALLET { ", the reference wallet" } else { "" }
+                if crate::config::rules::is_reference_wallet(&by) { ", a reference wallet" } else { "" }
             );
         }
         PENDING.lock().unwrap_or_else(|e| e.into_inner()).insert(

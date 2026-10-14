@@ -347,7 +347,20 @@ pub async fn backfill(now: u64) -> anyhow::Result<(usize, usize)> {
         return Ok((0, 0));
     }
     let since = (last + 1).max(now.saturating_sub(BACKFILL_MAX_SECS));
-    let wallet = rules::REFERENCE_WALLET;
+    // Every reference wallet (REFERENCE_WALLETS), each from the same point.
+    let (mut trades, mut coins) = (0, 0);
+    for &wallet in rules::reference_wallets() {
+        let (t, c) = backfill_wallet(wallet, since, now).await?;
+        trades += t;
+        coins += c;
+    }
+    Ok((trades, coins))
+}
+
+/// One wallet's pump.fun trades from `since` (unix seconds) to now, from RPC, recorded like live
+/// ones at their block time (each signature once). The startup backfill above, and the
+/// `reference_backfill` tool for a wallet newly added to REFERENCE_WALLETS. Returns (trades, coins).
+pub async fn backfill_wallet(wallet: Pubkey, since: u64, now: u64) -> anyhow::Result<(usize, usize)> {
     let (mut trades, mut coins, mut token): (usize, std::collections::HashSet<Pubkey>, Option<String>) = (0, Default::default(), None);
     let mut deployers: HashMap<Pubkey, Option<Pubkey>> = HashMap::new();
     loop {

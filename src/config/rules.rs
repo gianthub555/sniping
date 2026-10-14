@@ -12,6 +12,44 @@ use {crate::config::Dex, solana_pubkey::Pubkey};
 /// The wallet whose deployers the bot follows.
 pub const REFERENCE_WALLET: Pubkey =
     solana_pubkey::pubkey!("8RvtT8189KpAq5MkXGVHFn6LdZpxq9PkvDeAvs1g5Yj4");
+
+/// REFERENCE_WALLETS (keys, comma-separated): the wallets whose deployers the bot follows (the
+/// owner's list, 14 Oct). Every one's trades feed the same history (`REFERENCE_TRADES_FILE`), so a
+/// deployer counts as followed when any of them traded it in the last FOLLOW_RECENT_SECS, and its
+/// profit is theirs together. Unset or empty: REFERENCE_WALLET alone, as before. Read once.
+pub fn reference_wallets() -> &'static [Pubkey] {
+    static LIST: std::sync::LazyLock<Vec<Pubkey>> =
+        std::sync::LazyLock::new(|| parse_reference_wallets(crate::config::env_opt("REFERENCE_WALLETS").as_deref()));
+    &LIST
+}
+
+/// Whether `key` is one of `reference_wallets()`.
+#[inline]
+pub fn is_reference_wallet(key: &Pubkey) -> bool {
+    reference_wallets().contains(key)
+}
+
+/// REFERENCE_WALLETS' value as keys: each once, in order; an unreadable one is left out (and
+/// logged); none readable: REFERENCE_WALLET alone.
+pub fn parse_reference_wallets(value: Option<&str>) -> Vec<Pubkey> {
+    let mut list: Vec<Pubkey> = Vec::new();
+    for part in value.unwrap_or("").split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        match part.parse::<Pubkey>() {
+            Ok(k) if !list.contains(&k) => list.push(k),
+            Ok(_) => {}
+            Err(_) => log::warn!("REFERENCE_WALLETS: {part:?} is not a key; left out"),
+        }
+    }
+    if list.is_empty() {
+        list.push(REFERENCE_WALLET);
+    }
+    list
+}
+
+/// The reference wallets, short, for the summaries.
+fn reference_names() -> String {
+    reference_wallets().iter().map(short).collect::<Vec<_>>().join(", ")
+}
 /// His trades per deployer and coin creator (`unix key lamports_delta`), seeded from the study
 /// and appended with every trade of his the stream shows.
 pub const REFERENCE_TRADES_FILE: &str = "reference_deployers.txt";
@@ -757,7 +795,7 @@ pub fn summary() -> Vec<String> {
         format!(
             "entry: {}deployer traded by {} in the last {} h or made it {FOLLOW_MIN_PROFIT_SOL} SOL; dev buy {DEV_BUY_MIN_SOL}-{DEV_BUY_MAX_SOL} SOL; deployer held {DEPLOYER_MIN_SOL}+ SOL; deployer wallet {}+ h old; no mayhem;{} not within {} min of the same deployer's previous launch{};{}{} not when {:.0}%+ of the deployer's last {NO_POP_RECORD_LAST} launches ({NO_POP_RECORD_MIN_LAUNCHES}+, {NO_POP_RECORD_DAYS} days) got no buyers",
             if SKIP_ALL_CAPS_NAMES { "name not all capitals; " } else { "" },
-            short(&REFERENCE_WALLET),
+            reference_names(),
             FOLLOW_RECENT_SECS / 3600,
             DEPLOYER_MIN_AGE_SECS / 3600,
             if SKIP_REFERENCE_LOSERS { " not when the reference wallet lost SOL on the deployer's coins;" } else { "" },
@@ -825,7 +863,7 @@ pub fn summary() -> Vec<String> {
         if let Some(entry) = lines.iter_mut().find(|l| l.starts_with("entry:")) {
             *entry = format!(
                 "entry (scorecard, SCORECARD=true): deployer traded by {} in the last {} h or made it {FOLLOW_MIN_PROFIT_SOL} SOL; no mayhem; score {}+ from 15 facts (relaunch gap, launches in 1 h / 24 h, reference profit and trades, no-buyers record, the creator's earlier results, dev buy and share, bundle, deployer SOL, funding, wallet age; config::scorecard); replaces the dev-buy range, deployer minimum SOL and age, relaunch skip and no-buyers record",
-                short(&REFERENCE_WALLET),
+                reference_names(),
                 FOLLOW_RECENT_SECS / 3600,
                 crate::config::scorecard::min()
             );
@@ -863,6 +901,16 @@ fn short(key: &Pubkey) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_reference_wallet_list_reads_keys_once_in_order_and_defaults_to_the_one_wallet() {
+        let (a, b) = ("81eQ4UmJaqdQS5b4r4Xak6D9j3U4zF5d8suLTVDg14Sq", "pXGQ6J2ziRCvmYSLTT55FASf2jSHeCD6gju5xka31yV");
+        let list = parse_reference_wallets(Some(&format!(" {REFERENCE_WALLET}, {a},{b} ,{a}, nonsense ,")));
+        assert_eq!(list, vec![REFERENCE_WALLET, a.parse().unwrap(), b.parse().unwrap()]);
+        assert_eq!(parse_reference_wallets(Some(a)), vec![a.parse::<Pubkey>().unwrap()], "a list without 8RvtT8 is taken as given");
+        assert_eq!(parse_reference_wallets(None), vec![REFERENCE_WALLET]);
+        assert_eq!(parse_reference_wallets(Some(" , nonsense")), vec![REFERENCE_WALLET]);
+    }
 
     fn facts() -> LaunchFacts {
         LaunchFacts {

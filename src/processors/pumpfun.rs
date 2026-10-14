@@ -192,11 +192,12 @@ impl<'a> Processor<InstructionProcessorInputType<'a, PumpfunInstruction>> for Pu
         if crate::config::bundle10::shadow() {
             super::bundle10_shadow::observe(tx);
         }
-        // His own trades keep the followed-deployer list current. He signs them, so a key check
-        // skips every other transaction cheaply; the signature check counts each one once.
-        if tx.message.static_account_keys().contains(&rules::REFERENCE_WALLET) && crate::utils::reference::first_time(&tx.signature) {
+        // The reference wallets' own trades keep the followed-deployer list current (REFERENCE_WALLETS).
+        // They sign them, so a key check skips every other transaction cheaply; the signature
+        // check counts each one once.
+        if tx.message.static_account_keys().iter().any(rules::is_reference_wallet) && crate::utils::reference::first_time(&tx.signature) {
             for body in cpi_event_payloads(tx, &PUMP_PROGRAM_ID, &TRADE_EVENT_DISCRIMINATOR) {
-                if read_pubkey(&body, 49).ok() != Some(rules::REFERENCE_WALLET) {
+                if !read_pubkey(&body, 49).is_ok_and(|user| rules::is_reference_wallet(&user)) {
                     continue;
                 }
                 if let (Ok(coin), Ok(sol), Ok(creator)) = (read_pubkey(&body, 0), read_u64(&body, 32), read_pubkey(&body, 169)) {
