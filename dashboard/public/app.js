@@ -30,6 +30,9 @@ let tab = "trades";
 let run = "";
 /** Mode chosen in the URL (else the bot's); set once the status is known. */
 let modeFromUrl = null;
+// The viewer picked the mode by hand (the dropdown): only then does the URL keep it (pin=1); otherwise
+// the page follows the bot's mode, so a link saved while the bot ran paper shows live once it is live.
+let modePinned = false;
 let deployer = "";
 
 const sol = (lamports) => (lamports == null ? "–" : (lamports / LAMPORTS).toFixed(6));
@@ -1192,7 +1195,7 @@ function writeUrl() {
   const t = tableOf(tab);
   const q = new URLSearchParams();
   if (tab !== "trades") q.set("tab", tab);
-  q.set("mode", $("mode").value);
+  if (modePinned) (q.set("mode", $("mode").value), q.set("pin", "1"));
   if (!t.unpaged && t.page > 1) q.set("page", t.page);
   if (!t.unpaged && t.rows !== DEFAULT_ROWS) q.set("rows", t.rows);
   for (const [k, v] of Object.entries(t.filters())) if (k !== "mode" && v !== DEFAULTS[k] && v !== undefined) q.set(k, v);
@@ -1219,7 +1222,7 @@ function readUrl() {
   if (tab === "activity") set("activity-venue", "venue");
   if (tab === "rejections") (set("rej-hours", "hours"), set("rej-venue", "venue"));
   const m = q.get("mode");
-  if (m === "paper" || m === "live") modeFromUrl = m;
+  if ((m === "paper" || m === "live") && q.get("pin") === "1") (modeFromUrl = m, modePinned = true);
   const r = q.get("run");
   if (r === "all" || (r && /^[A-Za-z0-9._:-]{1,64}$/.test(r))) run = r;
   if (SORTS.includes(q.get("sort"))) tables.history.sort = q.get("sort");
@@ -1299,10 +1302,11 @@ async function main() {
   for (const b of document.querySelectorAll(".controls [data-action]")) b.onclick = () => trading(b.dataset.action === "trading-on");
   readUrl();
   await refreshStatus();
-  // The mode: the URL's, else the bot's, else paper. Never both.
+  // The mode: the one picked by hand (pinned in the URL), else the bot's, else paper. Never both.
   $("mode").value = modeFromUrl ?? last?.bot?.mode ?? "paper";
   $("show").onchange = () => filtered(tables.history);
   $("mode").onchange = () => {
+    modePinned = true;
     refreshRuns();
     tradingFiltersChanged();
   };
