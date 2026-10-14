@@ -2019,6 +2019,10 @@ fn decider(shadow: bool, mode: Mode, send: SendMode, lane_cfg: &LaneConfig) -> a
     if let Some(order) = fanout_order() {
         info!("hot fan-out order (HOT_FANOUT_ORDER): {}", order.iter().map(|&l| lanes::LANE_NAMES[l]).collect::<Vec<_>>().join(", "));
     }
+    // HOT_FAST_PDA read (and d computed) here, not on the first launch's derive.
+    if super::pda::warm() {
+        info!("hot address search: on-curve test by Legendre symbol (HOT_FAST_PDA)");
+    }
     let template = BuyTemplate::build(spec)?;
     let lanes = (send != SendMode::Off).then(|| Lanes::start(lane_cfg.clone()));
     let sample_ms = env_opt("HOT_DRY_SAMPLE_MS").and_then(|v| v.parse().ok()).unwrap_or(10_000);

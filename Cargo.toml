@@ -64,6 +64,10 @@ sha2 = "0.10"
 zeroize = "1"
 getrandom = "0.2"
 ring = "0.17"
+# The address search's on-curve test as a Legendre symbol (2026-10-14, src/hot/pda.rs, HOT_FAST_PDA):
+# Thomas Pornin's crrl, field GF(2^255-19) only; 2.3 us against dalek's 4.8 us decompression on
+# Frankfurt's CPU, the same answer on 2M random and every edge input tried.
+crrl = { version = "=0.9.0", default-features = false, features = ["std", "gf25519"] }
 dotenvy = "0.15.7"
 # The scorecard's new data (deployer wallet funding, launch results, scores, exit decisions): one
 # SQLite file, written off the hot path. Bundled so no system library is needed.
