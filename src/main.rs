@@ -44,11 +44,17 @@ fn main() {
     let env_file = dotenvy::dotenv().ok();
     // The runtime's threads (and every thread they start) keep off the hot path's cores.
     sniper_bot::hot::affinity::keep_off_hot_cores();
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .on_thread_start(sniper_bot::hot::affinity::keep_off_hot_cores)
-        .build()
-        .expect("tokio runtime");
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.enable_all().on_thread_start(sniper_bot::hot::affinity::keep_off_hot_cores);
+    // KEEP_BLOCKING_THREADS=true: the runtime's blocking threads stay once started. By default one
+    // idle for 10 s exits and the next blocking call starts another; each start (stack guard,
+    // mprotect) and exit (stack madvise + munmap) flushed the TLB of every core running this
+    // process, the hot cores included: 6-7 a minute on 14 Oct, ~45 shootdown IPIs a minute on
+    // cores 5 and 7 (bpftrace on the paper bot, Frankfurt).
+    if env_opt("KEEP_BLOCKING_THREADS").is_some_and(|v| v.eq_ignore_ascii_case("true")) {
+        builder.thread_keep_alive(std::time::Duration::from_secs(365 * 24 * 3600));
+    }
+    let runtime = builder.build().expect("tokio runtime");
     runtime.block_on(async_main(env_file));
 }
 

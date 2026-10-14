@@ -61,7 +61,8 @@ pub const SMALL_BET_SHARE: f64 = 0.65;
 /// (25-30 Sep, real landings, every sell's tip paid) +0.41 SOL a day at 8% against +0.31 at 13%,
 /// +0.20 at 20%, -0.28 with no guard. With a one-sell exit about 20% did best (+1.03 to +1.11).
 /// 1.25% again: the 28 Sep rules restored on 2026-10-07 (the owner's instruction, paper only).
-pub const BUY_SLIPPAGE_PERCENT: f64 = 1.25;
+/// 5% since 2026-10-14 (the owner's call, for the Frankfurt paper and live test; Germany stays 1.25%).
+pub const BUY_SLIPPAGE_PERCENT: f64 = 5.0;
 /// The buy accepts one fast buyer ahead of it: at most this much SOL put into the curve by others
 /// (after fees) on top of the dev's bundle, which is already in the quote. The owner's rule (25
 /// Sep). A single fast buyer puts in a median 2.93 SOL (p75 2.96: "3 SOL" less the fee). Replayed
