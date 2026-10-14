@@ -979,10 +979,14 @@ impl Decider {
                     let copy = self.copy_seq;
                     self.copy_seq += 1;
                     let mut first = true;
-                    for threaded in [true, false] {
-                        for lane in FANOUT_ORDER {
+                    // HOT_FANOUT_ORDER: its order, in one pass; otherwise FANOUT_ORDER, threaded
+                    // lanes first.
+                    let custom = fanout_order();
+                    let passes: &[Option<bool>] = if custom.is_some() { &[None] } else { &[Some(true), Some(false)] };
+                    for &pass in passes {
+                        for &lane in custom.unwrap_or(&FANOUT_ORDER) {
                             let Some(lanes) = self.lanes.as_ref() else { break };
-                            if carry & super::fee::lane_bit(lane) == 0 || lanes.is_threaded(lane) != threaded {
+                            if carry & super::fee::lane_bit(lane) == 0 || pass.is_some_and(|threaded| lanes.is_threaded(lane) != threaded) {
                                 continue;
                             }
                             let mut own = [0u64; MAX_TIPS];
@@ -1202,6 +1206,45 @@ impl Decider {
 /// the send).
 const FANOUT_ORDER: [usize; super::stamps::LANES] =
     [lanes::LANE_JITO, lanes::LANE_EVERSTAKE, lanes::LANE_ALLENHARK, lanes::LANE_TRITON, lanes::LANE_QUIC, lanes::LANE_ZEROSLOT, lanes::LANE_HELIUS, lanes::LANE_NOZOMI];
+
+/// HOT_FANOUT_ORDER (lane names, e.g. "0slot,everstake,jito"): the fan-out makes and sends its
+/// copies in this order, in one pass, whether a lane is threaded or not; lanes it leaves out
+/// follow in FANOUT_ORDER's order. Each copy is signed in turn (~20 us each on Frankfurt's CPU),
+/// so the first lane's copy leaves a signature or two earlier: with FANOUT_ORDER 0slot (0.25 ms
+/// away, the nearest) went third. None: unset (FANOUT_ORDER, threaded first). Read once; the
+/// engine's start reads it, off the hot path.
+pub fn fanout_order() -> Option<&'static [usize; super::stamps::LANES]> {
+    static ORDER: std::sync::LazyLock<Option<[usize; super::stamps::LANES]>> =
+        std::sync::LazyLock::new(|| parse_fanout_order(&env_opt("HOT_FANOUT_ORDER")?));
+    ORDER.as_ref()
+}
+
+/// `HOT_FANOUT_ORDER`'s value as a full order of the lanes (unknown names skipped; None: no known
+/// lane named).
+fn parse_fanout_order(value: &str) -> Option<[usize; super::stamps::LANES]> {
+    let mut order = [usize::MAX; super::stamps::LANES];
+    let mut n = 0;
+    for name in value.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        match lanes::LANE_NAMES.iter().position(|l| l.eq_ignore_ascii_case(name)) {
+            Some(lane) if !order[..n].contains(&lane) => {
+                order[n] = lane;
+                n += 1;
+            }
+            Some(_) => {}
+            None => warn!("HOT_FANOUT_ORDER: no lane named {name:?} (lanes: {})", lanes::LANE_NAMES.join(", ")),
+        }
+    }
+    if n == 0 {
+        return None;
+    }
+    for lane in FANOUT_ORDER {
+        if !order[..n].contains(&lane) {
+            order[n] = lane;
+            n += 1;
+        }
+    }
+    Some(order)
+}
 
 /// The highest priority bid among rivals' buys in the create's bundle window (not the deployer's,
 /// the named creator's, the create's fee payer's or ours).
@@ -1972,6 +2015,10 @@ fn decider(shadow: bool, mode: Mode, send: SendMode, lane_cfg: &LaneConfig) -> a
         }
     };
     let nonced = (super::nonces::hot_fanout() && send != SendMode::Off).then(|| BuyTemplate::build_nonced(spec.clone()));
+    // HOT_FANOUT_ORDER read here, so the first buy's fan-out does not read the environment.
+    if let Some(order) = fanout_order() {
+        info!("hot fan-out order (HOT_FANOUT_ORDER): {}", order.iter().map(|&l| lanes::LANE_NAMES[l]).collect::<Vec<_>>().join(", "));
+    }
     let template = BuyTemplate::build(spec)?;
     let lanes = (send != SendMode::Off).then(|| Lanes::start(lane_cfg.clone()));
     let sample_ms = env_opt("HOT_DRY_SAMPLE_MS").and_then(|v| v.parse().ok()).unwrap_or(10_000);
@@ -2723,5 +2770,33 @@ mod migration_tests {
         let (mut p, mut c) = spsc::channel::<Ev>(16);
         handle_pp_frame(&fee_sharing_frame(1, l.mint), now_ns(), &mut RecentSigs::new(), &mut Sink::Spsc(&mut p, &thread), Feed::Preprocessed);
         assert!(matches!(c.pop(), Some(Ev::CreatorMigration(m)) if m.mint == l.mint && m.slot == 1));
+    }
+}
+
+#[cfg(test)]
+mod fanout_order_tests {
+    use super::*;
+
+    #[test]
+    fn the_fanout_order_puts_the_named_lanes_first_and_keeps_every_lane_once() {
+        let order = parse_fanout_order("0slot, Everstake ,jito").expect("known lanes");
+        assert_eq!(order[..3], [lanes::LANE_ZEROSLOT, lanes::LANE_EVERSTAKE, lanes::LANE_JITO]);
+        let mut all = order.to_vec();
+        all.sort_unstable();
+        let mut want = FANOUT_ORDER.to_vec();
+        want.sort_unstable();
+        assert_eq!(all, want, "every lane exactly once");
+        // The ones left out follow in FANOUT_ORDER's order.
+        let rest: Vec<usize> = FANOUT_ORDER.iter().copied().filter(|l| ![lanes::LANE_ZEROSLOT, lanes::LANE_EVERSTAKE, lanes::LANE_JITO].contains(l)).collect();
+        assert_eq!(order[3..].to_vec(), rest);
+    }
+
+    #[test]
+    fn an_unknown_or_repeated_lane_is_skipped_and_none_known_means_unset() {
+        let order = parse_fanout_order("nope,0slot,0slot").expect("0slot is known");
+        assert_eq!(order[0], lanes::LANE_ZEROSLOT);
+        assert_eq!(order.iter().filter(|&&l| l == lanes::LANE_ZEROSLOT).count(), 1);
+        assert_eq!(parse_fanout_order("nope, ,"), None);
+        assert_eq!(parse_fanout_order(""), None);
     }
 }
