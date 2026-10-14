@@ -1,0 +1,343 @@
+/* bigboss dashboard: the copy bot dashboard's look (dark, dense, two panels). */
+:root {
+  --bg: #151515;
+  --panel: #1e1e1e;
+  --border: #2e2e2e;
+  --text: #e8e8e8;
+  --muted: #9a9a9a;
+  --green: #2ea043;
+  --red: #d1453b;
+  --amber: #c9a227;
+  /* Calendar tiles (Trades): neutral, and dark tints of the day's result. On the tints, text in
+     lighter shades: --green and --red there are too dark to read at tile size. */
+  --tile: #262626;
+  --green-tint: #16331f;
+  --red-tint: #3a1a17;
+  --amber-tint: #2e2812;
+  --green-text: #3fb950;
+  --red-text: #ef6b62;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: 12px 16px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+h1, h2, h3 { margin: 0 0 2px; font-weight: 700; }
+h2 { font-size: 17px; }
+a { color: var(--text); }
+.muted { color: var(--muted); margin: 0; }
+.small { font-size: 12px; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+.panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head p { max-width: 760px; }
+
+.topbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { font-weight: 800; font-size: 18px; }
+.user { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.statusbar { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.stat { display: inline-flex; gap: 6px; align-items: baseline; }
+.stat .label { color: var(--muted); font-size: 12px; }
+.stat .value { font-variant-numeric: tabular-nums; }
+.stat.ok .value { color: var(--green); }
+.stat.warn .value { color: var(--amber); }
+.stat.bad .value { color: var(--red); }
+
+.controls .control-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+/* The top row on every page: the controls left, the calendar right (narrower screens: below). */
+.top-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 0 12px; }
+/* The overview in the controls: compact tiles (SOL by sign, numbers plain). */
+.overview { margin: 2px 0 10px; }
+.overview-title { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+.ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.ov-tile { background: var(--tile); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+.ov-tile dt { color: var(--muted); font-size: 11px; }
+.ov-tile dd { margin: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-tile dd.gain { color: var(--green-text); }
+.ov-tile dd.loss { color: var(--red-text); }
+.ov-unit { color: var(--muted); font-size: 10px; font-weight: 400; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.btn {
+  background: #2a2a2a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: #4a4a4a; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.primary { background: #2c5f3a; border-color: #3b7a4b; }
+.btn.danger { background: #4a1f1c; border-color: #7a2f29; }
+.btn.danger.outline { background: transparent; color: var(--red); border-color: var(--red); }
+.btn.small { padding: 3px 9px; font-size: 12px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px 12px; color: var(--muted); }
+select, input {
+  background: #151515;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+}
+.summary { color: var(--muted); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 900px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.time { white-space: nowrap; color: var(--muted); }
+td.token a:first-child { text-decoration: underline; }
+td.token a.pump { color: var(--muted); font-size: 11px; }
+td .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.gain { color: var(--green); }
+.loss { color: var(--red); }
+.empty { text-align: center; color: var(--muted); padding: 22px 0; margin: 0; }
+.empty[hidden] { display: none; }
+td.warn { color: var(--amber); }
+
+/* Pages: Trades, Signals, Audit log. */
+.tabs { display: flex; gap: 4px; margin-top: 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--green); }
+
+/* Trade history: a row opens its transactions in the side panel; sortable headers; SOL, USD on hover. */
+tr.row { cursor: pointer; }
+tr.row:hover td, tr.row:focus-visible td { background: #232323; }
+tr.row:focus-visible { outline: 1px solid var(--border); }
+td .sub.tone { color: inherit; }
+.unit { font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid var(--border); border-radius: 4px;
+  padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+.sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; white-space: nowrap; }
+.sort::after { content: " " attr(data-arrow); font-size: 10px; }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--text); }
+.sort:focus-visible, .icon-btn:focus-visible, .linkbtn:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.linkbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-btn { background: none; border: 0; padding: 2px; color: var(--muted); cursor: pointer; border-radius: 4px; vertical-align: middle; }
+.icon-btn:hover { color: var(--text); }
+.icon-btn svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.offscreen { position: fixed; left: -9999px; top: 0; }
+.badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge.buy { background: var(--green-tint); color: var(--green-text); }
+.badge.sell { background: var(--red-tint); color: var(--red-text); }
+.tag { display: inline-block; font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+.tag.loss { color: var(--red-text); }
+
+/* The side panel (a trade row's transactions): slides in from the right; full width on a phone. */
+.drawer { position: fixed; inset: 0; z-index: 5; }
+.drawer-shade { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); opacity: 0; transition: opacity 0.2s ease; }
+.drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(640px, 100%);
+  overflow-y: auto;
+  padding: 14px 16px 24px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+.drawer.open .drawer-shade { opacity: 1; }
+.drawer.open .drawer-panel { transform: none; }
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.drawer-head .muted { margin-top: 2px; }
+#orders { min-width: 480px; }
+#orders td { vertical-align: middle; }
+#orders tr.failed td { opacity: 0.6; }
+body.drawer-open { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .drawer-shade, .drawer-panel { transition: none; }
+}
+
+/* Paging: footer « ‹ 1 2 … N › » Rows. */
+.table-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pager { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.pager .btn { min-width: 32px; }
+.pager .btn.current:disabled { opacity: 1; cursor: default; border-color: var(--green); }
+.pager .gap { padding: 0 4px; }
+.rows-select { display: flex; gap: 6px; align-items: center; }
+/* "N new — back to top": stays in view while the table scrolls. */
+.pill {
+  position: sticky;
+  top: 8px;
+  z-index: 1;
+  display: block;
+  margin: 0 auto 8px;
+  background: #2c5f3a;
+  border: 1px solid #3b7a4b;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modal { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal.hidden, .toast.hidden { display: none; }
+.modal-box { max-width: 440px; width: 100%; }
+.modal-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.toast { position: fixed; z-index: 11; right: 16px; bottom: 16px; background: var(--panel); border: 1px solid var(--green); border-radius: var(--radius); padding: 10px 14px; max-width: 420px; }
+.toast.bad { border-color: var(--red); }
+
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+.login-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+.login-box label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+.login-box input { padding: 9px 10px; }
+.error { color: var(--red); margin: 0; min-height: 1.2em; }
+
+/* Copy mode in the controls: the buy size and the wallet. */
+.copy-controls { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.size-row { align-items: center; margin-bottom: 2px; }
+.size-row input { width: 9em; font-variant-numeric: tabular-nums; }
+.size-row input[aria-invalid="true"] { border-color: var(--red); }
+.size-row input:disabled { color: var(--muted); }
+.copy-controls .error { min-height: 0; }
+.wallet { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.wallet .label { color: var(--muted); }
+
+/* The calendar (top row), a tile per day (weeks from Monday), tinted by the day's result. */
+.cal-title { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.cal-title h2 { display: flex; align-items: center; gap: 8px; margin: 0 6px 0 0; min-width: 7.5em; }
+.cal-title .btn { min-width: 32px; }
+.cal-icon { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
+.cal-wrap { position: relative; }
+.cal-weekdays, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal-weekdays { color: var(--muted); font-size: 12px; text-align: center; margin-bottom: 6px; }
+.cal-grid { list-style: none; margin: 0; padding: 0; }
+.cal-grid li { min-width: 0; }
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  min-height: 54px;
+  padding: 5px 8px;
+  background: var(--tile);
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+button.cal-day { cursor: pointer; }
+button.cal-day:hover { border-color: #4a4a4a; }
+.cal-day:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+.cal-day.even { color: var(--text); }
+.cal-day.gain { background: var(--green-tint); color: var(--green-text); }
+.cal-day.loss { background: var(--red-tint); color: var(--red-text); }
+.cal-day.today { border-color: var(--amber); color: var(--amber); }
+.cal-day.today:not(.gain):not(.loss) { background: var(--amber-tint); }
+.cal-date { font-size: 12px; }
+.cal-net { font-weight: 600; overflow-wrap: anywhere; }
+/* The day's tooltip: dark, rounded, next to the tile and inside the window (placed by app.js). */
+.cal-tip {
+  position: fixed;
+  z-index: 4;
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.tip-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.tip-date { font-weight: 700; font-size: 13px; }
+.tip-head .unit { margin-left: 0; }
+.tip-cols { display: grid; grid-template-columns: repeat(4, auto); gap: 8px 18px; }
+.tip-label, .tip-usd { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.tip-value { font-weight: 600; font-size: 13px; white-space: nowrap; margin: 1px 0; }
+.tip-value.gain, .tip-value .gain { color: var(--green-text); }
+.tip-value.loss, .tip-value .loss { color: var(--red-text); }
+.tip-foot { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+@media (max-width: 520px) {
+  .tip-cols { grid-template-columns: repeat(2, auto); }
+}
+
+/* Below 1200 px the calendar gets more of the top row (and smaller numbers) so its tiles stay
+   readable; at 900 px the two stack, controls first. */
+@media (max-width: 1200px) {
+  .top-row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .ov-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ov-tile { padding: 5px 6px; }
+  .cal-day { padding: 5px 4px; }
+  .cal-net { font-size: 11.5px; }
+}
+@media (max-width: 900px) {
+  .top-row { grid-template-columns: minmax(0, 1fr); }
+  .ov-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  body { padding: 10px 12px 24px; }
+  .user { margin-left: 0; }
+  #calendar-panel { padding: 12px 10px; }
+  .cal-weekdays, .cal-grid { gap: 3px; }
+  .cal-day { min-height: 48px; padding: 4px 2px; gap: 2px; }
+  .cal-date { font-size: 11px; }
+  .cal-net { font-size: 9.5px; letter-spacing: -0.03em; }
+  .drawer-panel { padding: 12px 10px 20px; }
+  .ov-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .ov-tile { padding: 5px 6px; }
+  #orders { min-width: 0; font-size: 12px; }
+  #orders th, #orders td { padding: 6px 3px; }
+  #orders td.time { white-space: normal; }
+  .badge { padding: 1px 6px; }
+}
+
+/* Copy mode alert (every page): amber = undecodable transactions in the last hour, red = copy mode stopped. */
+.alert { margin: 12px 16px 0; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--amber);
+  color: var(--amber); background: rgba(201, 162, 39, 0.08); cursor: pointer; }
+.alert.bad { border-color: var(--red); color: var(--red); background: rgba(209, 69, 59, 0.08); }
+
+/* bigboss additions: the trading state beside its buttons, the Snipe page's two columns. */
+.trading-state { font-weight: 700; margin-right: 4px; }
+.warn { color: var(--amber); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid2 > div { min-width: 0; }
+@media (max-width: 1700px) {
+  .grid2 { grid-template-columns: 1fr; }
+}
+.alert.note { border-color: var(--border); color: var(--muted); background: transparent; }
+
+/* The logo: a white tile (the artwork is on white), in the top bar and on the login page. */
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-logo { width: 36px; height: 36px; border-radius: 6px; background: #fff; object-fit: contain; flex: none; }
+.login-logo { display: block; width: 160px; height: 160px; margin: 0 auto 12px; border-radius: 12px; background: #fff; object-fit: contain; }
+.login-box h1 { text-align: center; }

@@ -1,0 +1,46 @@
+# bigboss's dashboard (dashboard/): 127.0.0.1:8790 only, behind its own login; Caddy serves it over
+# HTTPS on the server's public address (deploy/Caddyfile.template, scripts/dashboard-caddy.sh).
+# CPU 0 at Nice 10: the bot's hot cores (1-3) are never touched. It reads the store read-only and
+# follows the bot's local API; it never starts, stops or restarts the bot.
+#
+# Install: cp deploy/bigboss-dashboard.service /etc/systemd/system/ && systemctl daemon-reload &&
+#          systemctl enable --now bigboss-dashboard
+[Unit]
+Description=bigboss dashboard (127.0.0.1:8790)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/Documents/BigBoss/dashboard
+ExecStart=/opt/node22/bin/node --no-warnings src/server.ts
+Environment=DASH_HOST=127.0.0.1
+Environment=DASH_PORT=8790
+Restart=on-failure
+RestartSec=3
+AllowedCPUs=0
+Nice=10
+MemoryMax=512M
+# Hardening: read-only everywhere but the audit log and the store's directory (SQLite's shared
+# memory file of a WAL database is written even by readers); no capabilities at all.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ReadWritePaths=/root/Documents/BigBoss/logs /root/Documents/BigBoss/data
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

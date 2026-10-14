@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sniper Bot Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --series-1: #2a78d6;
+    --good: #0ca30c;
+    --good-text: #006300;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --wash: rgba(11, 11, 11, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface-1: #1a1a19;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --series-1: #3987e5;
+      --good-text: #0ca30c;
+      --critical: #d03b3b;
+      --wash: rgba(255, 255, 255, 0.05);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --series-1: #3987e5;
+    --good-text: #0ca30c;
+    --wash: rgba(255, 255, 255, 0.05);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--text-secondary); font-size: 13px; }
+  .muted { color: var(--text-muted); }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--text-secondary); font-size: 13px; margin-top: 6px; }
+  .meta b { color: var(--text-primary); font-weight: 600; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1); font-size: 12px; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 20px 0 16px; }
+  .filters label { color: var(--text-secondary); font-size: 13px; display: inline-flex; gap: 8px; align-items: center; }
+  select { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .kpi .label { color: var(--text-secondary); font-size: 13px; }
+  .kpi .value { font-size: 28px; font-weight: 600; margin: 2px 0; }
+  .kpi.hero { grid-column: span 2; }
+  .kpi.hero .value { font-size: 48px; line-height: 1.1; }
+  .kpi .detail { color: var(--text-muted); font-size: 12px; }
+  @media (max-width: 560px) { .kpi.hero { grid-column: 1 / -1; } .kpi.hero .value { font-size: 40px; } }
+  .up { color: var(--good-text); }
+  .down { color: var(--critical); }
+  .session { color: var(--text-muted); font-size: 12px; margin: 10px 2px 0; }
+  section { margin-top: 16px; }
+  .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 10px; }
+  .chart-wrap { position: relative; }
+  svg.chart { display: block; width: 100%; height: 240px; overflow: visible; }
+  svg.chart:focus-visible { outline: 2px solid var(--series-1); outline-offset: 4px; border-radius: 4px; }
+  .axis-text { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .end-label { fill: var(--text-secondary); font-size: 12px; font-weight: 600; }
+  .tooltip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 170px; display: none; z-index: 2; }
+  .tooltip .v { font-size: 15px; font-weight: 600; }
+  .tooltip .key { display: inline-block; width: 12px; height: 2px; background: var(--series-1); vertical-align: middle; margin-right: 6px; }
+  .empty { color: var(--text-muted); text-align: center; padding: 32px 8px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--text-secondary); padding: 6px 10px; border-bottom: 1px solid var(--baseline); white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; vertical-align: middle; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover td { background: var(--wash); }
+  a { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--baseline); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; }
+  a.token { display: inline-block; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+  .status .icon { font-size: 11px; width: 14px; text-align: center; }
+  .note { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+  .conn-lost .kpis, .conn-lost section { opacity: .6; }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; padding: 12px 16px; }
+  .controls label { font-weight: 600; }
+  .controls input { font: inherit; width: 120px; color: var(--text-primary); background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-variant-numeric: tabular-nums; }
+  .controls button { font: inherit; font-weight: 600; color: var(--surface-1); background: var(--text-primary); border: 0; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+  .controls button:disabled { opacity: .5; cursor: default; }
+  .controls .hint { color: var(--text-muted); font-size: 12px; }
+  .trade-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; padding: 12px 16px; }
+  .trade-switch .state { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .trade-switch .state .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); }
+  .trade-switch.on .state .dot { background: var(--good); }
+  .trade-switch button, .row-btn, .head-btn { font: inherit; font-weight: 600; border-radius: 6px; cursor: pointer; }
+  .trade-switch button { border: 0; padding: 7px 18px; color: #fff; }
+  .trade-switch #trade-start { background: var(--good); }
+  .trade-switch #trade-stop { background: var(--critical); }
+  .trade-switch button:disabled, .row-btn:disabled, .head-btn:disabled { opacity: .45; cursor: default; }
+  .trade-switch .hint { color: var(--text-muted); font-size: 12px; }
+  .row-btn, .head-btn { color: var(--critical); background: transparent; border: 1px solid var(--critical); padding: 3px 10px; font-size: 12px; }
+  .row-btn:hover:not(:disabled), .head-btn:hover:not(:disabled) { background: var(--critical); color: #fff; }
+  .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 10px; font-size: 13px; color: var(--text-secondary, var(--text-muted)); }
+  .pager-controls { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .pager-controls label { margin-right: 8px; }
+  .pager select { font: inherit; color: var(--text-primary); background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px; }
+  .pager button { font: inherit; min-width: 30px; height: 28px; padding: 0 8px; color: var(--text-primary); background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .pager button:hover:not(:disabled) { border-color: var(--text-primary); }
+  .pager button[aria-current="page"] { color: var(--surface-1); background: var(--text-primary); border-color: var(--text-primary); font-weight: 700; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .pager .gap { padding: 0 4px; color: var(--text-muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ok-text { color: var(--good-text); }
+  .err-text { color: var(--critical); }
+  .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  .split > section { margin-top: 0; }
+  @media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+  .feed li { display: grid; grid-template-columns: 64px 16px minmax(0, 1fr); gap: 6px; padding: 5px 4px; border-bottom: 1px solid var(--grid); font-size: 12.5px; }
+  .feed .when { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .feed .icon { text-align: center; }
+  .feed .what { overflow-wrap: anywhere; }
+  .feed .who { color: var(--text-muted); font-size: 12px; }
+  .feed li.fresh { animation: fresh 1.6s ease-out; }
+  @keyframes fresh { from { background: var(--wash); } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .feed li.fresh { animation: none; } }
+  .toggle { color: var(--text-secondary); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+<main id="app">
+  <header>
+    <div>
+      <h1>Sniper bot</h1>
+      <div class="meta" id="meta"><span class="muted">Connecting to the bot…</span></div>
+    </div>
+    <div class="sub" id="conn"></div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <label>Time range
+      <select id="range">
+        <option value="all">All time</option>
+        <option value="3600">Last hour</option>
+        <option value="86400">Last 24 hours</option>
+        <option value="604800">Last 7 days</option>
+      </select>
+    </label>
+    <label>DEX
+      <select id="dex"><option value="all">All DEXes</option></select>
+    </label>
+    <label>History
+      <select id="history-mode" title="Live and paper (dry-run) trades are kept apart: every figure below is one of them">
+        <option value="live">Live trades</option>
+        <option value="paper">Paper trades</option>
+      </select>
+    </label>
+  </div>
+
+  <section class="card trade-switch" id="trade-switch" aria-label="Trading">
+    <span class="state" role="status"><span class="dot" aria-hidden="true"></span><span id="trade-state">Paused</span></span>
+    <button type="button" id="trade-start">Start trading</button>
+    <button type="button" id="trade-stop">Stop trading</button>
+    <span class="hint" id="trade-hint">The bot starts paused every time it is launched. Stop only halts new buys; open positions keep being managed.</span>
+    <span id="trade-status" role="status"></span>
+  </section>
+
+  <form class="card controls" id="buy-form" autocomplete="off">
+    <label for="buy-size">Buy size</label>
+    <input id="buy-size" name="sol" type="number" min="0.000001" step="any" inputmode="decimal" required aria-describedby="buy-hint">
+    <span>SOL per buy</span>
+    <button type="submit" id="buy-apply">Apply</button>
+    <span class="hint" id="buy-hint">Applies to the next buy and is saved to .env. Open positions keep their size.</span>
+    <span id="buy-status" role="status"></span>
+  </form>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="session" id="session"></div>
+
+  <div class="split">
+  <section class="card" aria-labelledby="chart-title">
+    <div class="section-head">
+      <div>
+        <h2 id="chart-title">Cumulative realized PnL</h2>
+        <div class="sub">SOL, by time each position closed. Every point's value is in the trade history.</div>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chart-wrap">
+      <svg class="chart" id="chart" tabindex="0" role="img" aria-label="Cumulative realized PnL chart"></svg>
+      <div class="tooltip" id="tooltip" role="status"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="feed-title">
+    <div class="section-head">
+      <div>
+        <h2 id="feed-title">Live activity</h2>
+        <div class="sub">Buys and sells as they happen.</div>
+      </div>
+      <label class="toggle">Show
+        <select id="feed-filter">
+          <option value="trades">Buys &amp; sells</option>
+          <option value="attempts">Buys &amp; sells + failed</option>
+          <option value="all">Everything (detected, skipped)</option>
+        </select>
+      </label>
+    </div>
+    <ul class="feed" id="feed" aria-live="polite"></ul>
+  </section>
+  </div>
+
+  <section class="card" aria-labelledby="pos-title">
+    <div class="section-head">
+      <div>
+        <h2 id="pos-title">Open positions</h2>
+        <div class="sub">Valued at what selling the whole balance would return now, after fees.</div>
+      </div>
+      <button type="button" class="head-btn" id="sell-all">Sell all</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Token</th><th>DEX</th><th class="num">Held</th><th class="num">Entry SOL</th>
+        <th class="num">Value SOL</th><th class="num">PnL</th><th class="num">Peak</th><th>State</th><th><span class="sr-only">Sell</span></th>
+      </tr></thead>
+      <tbody id="positions"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card" aria-labelledby="hist-title">
+    <div class="section-head">
+      <div>
+        <h2 id="hist-title">Trade history</h2>
+        <div class="sub">Every token in <code id="history-file">auto_sell_logs.csv</code>, newest first, one row each. PnL is what the sells returned against what those tokens cost, so it matches the SOL columns. Wallet Δ sums the real SOL change of its landed transactions, including fees, tips and rent.</div>
+      </div>
+      <label class="toggle">Show
+        <select id="history-filter">
+          <option value="trades">Buys &amp; sells</option>
+          <option value="all">Buys &amp; sells + failed</option>
+        </select>
+      </label>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th title="When the token was bought; hover a time for the last sell">Bought</th><th>Token</th><th>Status</th>
+        <th class="num">SOL in</th><th class="num">SOL out</th><th class="num">Wallet Δ</th>
+        <th class="num" title="SOL the sells returned against the cost of the tokens sold; a laddered exit sells unequal slices, so this is not the average of the sells' percentages">PnL</th><th class="num" title="Time from the token's launch until the buy landed (live) or was ready to send (dry run)">Speed</th><th>Reason</th><th class="num" title="Buys / sells recorded for this token">Buys / sells</th>
+      </tr></thead>
+      <tbody id="history"></tbody>
+    </table></div>
+    <div class="pager" id="history-pager" role="navigation" aria-label="Trade history pages">
+      <span class="pager-info" id="history-note" role="status"></span>
+      <span class="pager-controls">
+        <label>Rows <select id="history-page-size"><option>10</option><option>25</option><option>50</option><option>100</option></select></label>
+        <button type="button" data-page="first" aria-label="First page">«</button>
+        <button type="button" data-page="prev" aria-label="Previous page">‹</button>
+        <span id="history-pages"></span>
+        <button type="button" data-page="next" aria-label="Next page">›</button>
+        <button type="button" data-page="last" aria-label="Last page">»</button>
+      </span>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const view = { data: null, trades: [], receivedAt: 0, lastOk: 0, focus: null, seenActivity: -1, buyDirty: false, selling: new Set(), switching: false };
+/// History table paging; the page stays put while live updates arrive.
+const pager = { page: 1, size: 10 };
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") node.className = v;
+    else if (k === "title") node.title = v;
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+function svgEl(tag, attrs = {}) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+const num = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
+const short = (s) => (s && s.length > 12 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s || "");
+function sol(v, digits = 4, signed = false) {
+  if (v === null || Number.isNaN(v)) return "—";
+  const s = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (!signed) return (v < 0 ? "−" : "") + s;
+  return (v > 0 ? "+" : v < 0 ? "−" : "±") + s;
+}
+function pct(v) {
+  if (v === null || Number.isNaN(v)) return "—";
+  return (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2) + "%";
+}
+function duration(secs) {
+  if (secs < 60) return `${Math.floor(secs)}s`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ${Math.floor(secs % 60)}s`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+  return `${Math.floor(secs / 86400)}d ${Math.floor((secs % 86400) / 3600)}h`;
+}
+function signedCell(value, text) {
+  const cell = el("td", { class: "num" });
+  if (value !== null && value !== 0 && !Number.isNaN(value)) {
+    cell.append(el("span", { class: value > 0 ? "up" : "down", "aria-hidden": "true" }, value > 0 ? "▲ " : "▼ "));
+  }
+  cell.append(text);
+  return cell;
+}
+/// The token's symbol ("SQQQ") once the bot has looked it up; a short address until then.
+function tokenLabel(mint) {
+  const n = view.data && view.data.names && view.data.names[mint];
+  return (n && (n.symbol || n.name)) || short(mint);
+}
+const tokenLink = (mint) => {
+  const n = view.data && view.data.names && view.data.names[mint];
+  const full = n && n.name && n.name !== n.symbol ? `${tokenLabel(mint)} (${n.name})` : tokenLabel(mint);
+  return el("a", { class: "token", href: `https://gmgn.ai/sol/token/${encodeURIComponent(mint)}`, target: "_blank", rel: "noopener", title: `${full} · open on GMGN` }, tokenLabel(mint));
+};
+
+function classifyStatus(status) {
+  const s = (status || "").toLowerCase();
+  if (s === "confirmed") return { label: "Landed", icon: "✓", color: "var(--good)" };
+  if (s === "paper") return { label: "Paper", icon: "○", color: "var(--text-muted)" };
+  if (s === "simulated") return { label: "Simulated", icon: "○", color: "var(--text-muted)" };
+  if (s === "timeout") return { label: "Timed out", icon: "!", color: "var(--warning)" };
+  if (s.startsWith("lost race") || s.startsWith("not included") || (s.startsWith("simulation failed") && s.includes("custom(6042)"))) return { label: "Lost race", icon: "–", color: "var(--warning)" };
+  if (s.startsWith("simulation failed")) return { label: "Sim failed", icon: "✕", color: "var(--critical)" };
+  if (s.startsWith("failed")) return { label: "Failed", icon: "✕", color: "var(--critical)" };
+  if (s.startsWith("simulated:")) return { label: "Sim failed", icon: "✕", color: "var(--critical)" };
+  return { label: status || "—", icon: "•", color: "var(--text-muted)" };
+}
+
+function parseTrades(rows) {
+  return rows.map((r) => ({
+    mode: r.mode === "paper" ? "paper" : "live",
+    t: Date.parse(r.timestamp) / 1000,
+    timestamp: r.timestamp,
+    action: r.action,
+    dex: r.dex,
+    mint: r.mint,
+    signature: r.signature,
+    status: r.status || "",
+    solIn: num(r.sol_in),
+    solOut: num(r.sol_out),
+    tokens: r.token_amount,
+    pnlPct: num(r.pnl_percent),
+    reason: r.reason,
+    walletChange: num(r.wallet_sol_change),
+    launchSlot: num(r.launch_slot),
+    readySlot: num(r.ready_slot),
+    landedSlot: num(r.landed_slot),
+    readyMs: num(r.detect_to_ready_ms),
+    landedMs: num(r.launch_to_landed_ms),
+  })).filter((r) => !Number.isNaN(r.t));
+}
+
+const ms = (v) => (v === null ? "—" : v < 10 ? `${v.toFixed(2)} ms` : v < 1000 ? `${Math.round(v)} ms` : `${(v / 1000).toFixed(2)} s`);
+const slotOffset = (slot, launch) => `+${slot - launch}`;
+function median(values) {
+  if (!values.length) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/// Speed of a buy against its launch: landed slot and time when live, readiness in dry run.
+function speedCell(r) {
+  if (r.action !== "BUY" || r.launchSlot === null) return el("td", { class: "num" }, el("span", { class: "muted" }, "—"));
+  if (r.landedSlot !== null) {
+    const title = `Landed in slot ${r.landedSlot}, ${r.landedSlot - r.launchSlot} after the launch slot ${r.launchSlot}.` +
+      (r.landedMs !== null ? ` ${ms(r.landedMs)} from receiving the launch to receiving this buy in the same stream.` : "") +
+      (r.readyMs !== null ? ` Transaction ready ${ms(r.readyMs)} after the launch arrived.` : "");
+    return el("td", { class: "num", title }, `slot ${slotOffset(r.landedSlot, r.launchSlot)}${r.landedMs !== null ? ` · ${ms(r.landedMs)}` : ""}`);
+  }
+  if (r.readyMs === null) return el("td", { class: "num" }, el("span", { class: "muted" }, "—"));
+  const title = `Not landed (dry run or not sent): the transaction was ready ${ms(r.readyMs)} after the launch arrived` +
+    (r.readySlot !== null ? `, while the chain was at slot ${r.readySlot} (launch slot ${slotOffset(r.readySlot, r.launchSlot)}).` : ".");
+  return el("td", { class: "num", title }, `ready ${ms(r.readyMs)}${r.readySlot !== null ? ` · slot ${slotOffset(r.readySlot, r.launchSlot)}` : ""}`);
+}
+
+/// Closed positions (buy + sell) and costs of failed transactions, from the full log.
+/// Ladder sells that leave the position open; the position closes on any other sell reason.
+const PARTIAL_SELL = new Set(["FIRST", "STEP"]);
+
+function deriveClosed(trades) {
+  const open = new Map(); // mint -> { buy, sells }
+  const closed = [];
+  const failedCosts = [];
+  for (const r of trades) {
+    // A transaction that did not go through but still cost fees: live failures, and dry-run ones
+    // (lost races, failed simulations, sells past slippage) with their modeled fees.
+    const ok = r.status === "confirmed" || r.status === "simulated" || r.status === "paper";
+    if (!ok && r.walletChange !== null) failedCosts.push({ t: r.t, dex: r.dex, sol: r.walletChange });
+    if (r.action === "BUY") {
+      if (r.status === "confirmed" || r.status === "simulated") open.set(r.mint, { buy: r, sells: [] });
+      continue;
+    }
+    const done = r.status === "confirmed" || r.status === "paper" || r.status === "simulated";
+    if (r.action !== "SELL" || !done) continue;
+    const entry = open.get(r.mint) || { buy: null, sells: [] };
+    entry.sells.push(r);
+    if (PARTIAL_SELL.has(r.reason)) { open.set(r.mint, entry); continue; }
+    const { buy, sells } = entry;
+    // Wallet changes are real for landed trades and modeled (fees and tips included) for
+    // live-timed dry-run trades; either way they are the better measure than quotes.
+    const exact = buy && buy.walletChange !== null && sells.every((s) => s.walletChange !== null);
+    const paper = !!buy && (buy.status === "simulated" || sells.some((s) => s.status === "paper"));
+    let pnl, pnlPct;
+    if (exact) {
+      pnl = buy.walletChange + sells.reduce((a, s) => a + s.walletChange, 0);
+      pnlPct = buy.solIn ? (pnl / buy.solIn) * 100 : null;
+    } else {
+      const solIn = sells.reduce((a, s) => a + (s.solIn ?? 0), 0);
+      const solOut = sells.reduce((a, s) => a + (s.solOut ?? 0), 0);
+      pnl = solOut - solIn;
+      pnlPct = solIn ? (pnl / solIn) * 100 : r.pnlPct;
+    }
+    closed.push({ t: r.t, dex: r.dex, mint: r.mint, pnl, pnlPct, reason: r.reason, estimated: !exact || paper, sells: sells.length });
+    open.delete(r.mint);
+  }
+  return { closed, failedCosts };
+}
+
+function inScope(item, since, dex) {
+  return item.t >= since && (dex === "all" || item.dex === dex);
+}
+
+function render() {
+  const d = view.data;
+  if (!d) return;
+  const range = $("range").value;
+  const dex = $("dex").value;
+  const since = range === "all" ? 0 : d.now - Number(range);
+
+  // Header
+  const meta = $("meta");
+  meta.replaceChildren(
+    el("span", { class: "badge" }, el("span", { class: "dot", style: `background:${d.mode === "live" ? "var(--good)" : "var(--warning)"}` }), d.mode === "live" ? "Live trading" : "Dry run"),
+    el("span", {}, "Wallet ", el("b", { title: d.trading_wallet }, short(d.trading_wallet))),
+    el("span", {}, "Balance ", el("b", {}, d.balance_sol === null ? "—" : `${sol(d.balance_sol, 4)} SOL`)),
+    el("span", {}, "Sender ", el("b", {}, d.confirm_service)),
+    el("span", {}, "Buy ", el("b", {}, `${d.buy_sol} SOL`), ` stake · ${d.buy_ahead_max_sol != null ? `at most ${d.buy_ahead_max_sol} SOL bought ahead` : `buy guard ${d.slippage_percent}%`}`),
+    el("span", {}, "Up ", el("b", { id: "uptime" }, duration(d.uptime_secs))),
+  );
+  renderTradeSwitch(d);
+  if (!view.buyDirty && document.activeElement !== $("buy-size")) $("buy-size").value = d.buy_sol;
+  $("buy-size").max = d.max_buy_sol;
+
+  // DEX filter options follow the bot's configuration
+  const dexSelect = $("dex");
+  const wanted = ["all", ...d.dexes];
+  if (dexSelect.options.length !== wanted.length) {
+    const current = dexSelect.value;
+    dexSelect.replaceChildren(...wanted.map((name) => el("option", { value: name }, name === "all" ? "All DEXes" : name)));
+    dexSelect.value = wanted.includes(current) ? current : "all";
+  }
+
+  // Live and paper histories never mix: the History filter picks one (the bot's mode until changed).
+  const modeSelect = $("history-mode");
+  if (!view.historyModeChosen) modeSelect.value = d.mode === "live" ? "live" : "paper";
+  $("history-file").textContent = modeSelect.value === "paper" ? "auto_sell_logs_paper.csv" : "auto_sell_logs.csv";
+  const trades = parseTrades(view.trades).filter((r) => r.mode === modeSelect.value);
+  const { closed, failedCosts } = deriveClosed(trades);
+  const scopedClosed = closed.filter((c) => inScope(c, since, dex));
+  const scopedFailed = failedCosts.filter((c) => inScope(c, since, dex));
+  const scopedTrades = trades.filter((r) => inScope(r, since, dex));
+
+  // KPIs
+  const failedTotal = scopedFailed.reduce((a, c) => a + c.sol, 0);
+  const realized = scopedClosed.reduce((a, c) => a + c.pnl, 0) + failedTotal;
+  const wins = scopedClosed.filter((c) => c.pnl > 0).length;
+  const losses = scopedClosed.length - wins;
+  const pcts = scopedClosed.map((c) => c.pnlPct).filter((v) => v !== null);
+  const avgPct = pcts.length ? pcts.reduce((a, v) => a + v, 0) / pcts.length : null;
+  const buyRows = scopedTrades.filter((r) => r.action === "BUY");
+  const buysOk = buyRows.filter((r) => r.status === "confirmed" || r.status === "simulated").length;
+  const anyEstimated = scopedClosed.some((c) => c.estimated);
+  const positions = d.positions.filter((p) => dex === "all" || p.dex === dex);
+  const openValue = positions.reduce((a, p) => a + (p.value_sol ?? 0), 0);
+  const unrealized = positions.reduce((a, p) => a + (p.value_sol === null ? 0 : p.value_sol - p.entry_sol), 0);
+
+  const tile = (label, value, detail, cls = "", valueClass = "") =>
+    el("div", { class: `card kpi ${cls}` }, el("div", { class: "label" }, label), el("div", { class: `value ${valueClass}` }, value), el("div", { class: "detail" }, detail));
+  const realizedDetail = [
+    `${scopedClosed.length} closed position${scopedClosed.length === 1 ? "" : "s"}`,
+    failedTotal ? `includes ${sol(failedTotal, 5, true)} SOL of failed-transaction fees` : null,
+    anyEstimated ? "dry-run values are estimates from quotes" : null,
+  ].filter(Boolean).join(" · ");
+  $("kpis").replaceChildren(
+    tile("Realized PnL (SOL)", sol(realized, 4, true), realizedDetail, "hero", realized > 0 ? "up" : realized < 0 ? "down" : ""),
+    tile("Win rate", scopedClosed.length ? `${Math.round((wins / scopedClosed.length) * 100)}%` : "—", `${wins} won · ${losses} lost`),
+    tile("Average trade", pct(avgPct), pcts.length ? `best ${pct(Math.max(...pcts))} · worst ${pct(Math.min(...pcts))}` : "no closed positions"),
+    tile("Buys", `${buysOk} / ${buyRows.length}`, (() => {
+      const lost = buyRows.filter((r) => classifyStatus(r.status).label === "Lost race").length;
+      const failed = buyRows.length - buysOk - lost;
+      return [lost ? `${lost} lost the race (others bought first)` : null, failed ? `${failed} failed or timed out` : null].filter(Boolean).join(" · ") || "none failed";
+    })()),
+    speedTile(buyRows, tile),
+    tile(
+      "Open positions",
+      d.max_open_positions && dex === "all" ? `${positions.length} / ${d.max_open_positions}` : String(positions.length),
+      [
+        positions.length ? `worth ${sol(openValue, 4)} SOL · unrealized ${sol(unrealized, 4, true)}` : "none open",
+        d.max_open_positions && d.open_positions > d.positions.length ? `${d.open_positions - d.positions.length} buy${d.open_positions - d.positions.length === 1 ? "" : "s"} in flight` : null,
+        d.max_open_positions && d.open_positions >= d.max_open_positions ? "limit reached: new pools are skipped" : null,
+      ].filter(Boolean).join(" · "),
+    ),
+  );
+  const c = d.counters;
+  const filters = (d.rules || []).join(" · ");
+  $("session").textContent = `Since bot start (not filtered): ${c.detected} pools detected · ${c.filtered} filtered out · buys ${c.buys_ok} ok / ${c.buys_failed} failed · sells ${c.sells_ok} ok / ${c.sells_failed} failed. Rules: ${filters}`;
+
+  renderChart(scopedClosed.concat(scopedFailed.map((f) => ({ t: f.t, dex: f.dex, mint: "", pnl: f.sol, failedFee: true }))).sort((a, b) => a.t - b.t));
+  renderPositions(positions, d.now);
+  renderHistory(scopedTrades);
+  renderFeed(d.activity, dex);
+}
+
+/// Median launch-to-landed time of live buys, or launch-to-ready time when nothing landed.
+function speedTile(buyRows, tile) {
+  const landed = buyRows.filter((r) => r.status === "confirmed" && r.landedSlot !== null && r.launchSlot !== null);
+  if (landed.length) {
+    const slots = median(landed.map((r) => r.landedSlot - r.launchSlot));
+    const times = landed.map((r) => r.landedMs).filter((v) => v !== null);
+    const sameSlot = landed.filter((r) => r.landedSlot === r.launchSlot).length;
+    return tile("Launch → landed", times.length ? ms(median(times)) : `+${slots} slots`,
+      `median of ${landed.length} bought · ${slots} slot${slots === 1 ? "" : "s"} after launch · ${sameSlot} in the launch slot`);
+  }
+  const timed = buyRows.filter((r) => r.readyMs !== null && r.launchSlot !== null);
+  if (!timed.length) return tile("Launch → landed", "—", "no timed buys yet");
+  const behind = median(timed.filter((r) => r.readySlot !== null).map((r) => r.readySlot - r.launchSlot));
+  return tile("Launch → buy ready", ms(median(timed.map((r) => r.readyMs))),
+    `median of ${timed.length} attempts${behind === null ? "" : ` · chain at launch slot +${behind}`} · landing is timed only in live mode`);
+}
+
+const ACTIVITY_ICONS = {
+  detected: { icon: "●", color: "var(--series-1)", label: "Detected" },
+  skipped: { icon: "–", color: "var(--text-muted)", label: "Skipped" },
+  bought: { icon: "✓", color: "var(--good)", label: "Bought" },
+  buy_failed: { icon: "✕", color: "var(--critical)", label: "Buy failed" },
+  sold: { icon: "✓", color: "var(--good)", label: "Sold" },
+  sell_failed: { icon: "✕", color: "var(--critical)", label: "Sell failed" },
+  settings: { icon: "⚙", color: "var(--text-secondary)", label: "Settings" },
+};
+
+const FEED_KINDS = {
+  trades: ["bought", "sold"],
+  attempts: ["bought", "sold", "buy_failed", "sell_failed"],
+};
+
+function renderFeed(items, dex) {
+  const filter = $("feed-filter").value;
+  const kinds = FEED_KINDS[filter];
+  const visible = items.filter((a) => (!kinds || kinds.includes(a.kind)) && (dex === "all" || !a.dex || a.dex === dex));
+  const newest = items.length ? items[0].id : view.seenActivity;
+  if (!visible.length) {
+    const empty = filter === "all" ? "Waiting for activity…"
+      : filter === "trades" ? "No buys or sells since the bot started. Earlier ones are in the trade history."
+      : "No buys, sells or failed attempts since the bot started.";
+    $("feed").replaceChildren(el("li", { class: "empty", style: "display:block" }, empty));
+  } else {
+    $("feed").replaceChildren(...visible.map((a) => {
+      const kind = ACTIVITY_ICONS[a.kind] || { icon: "•", color: "var(--text-muted)", label: a.kind };
+      const what = el("div", { class: "what" }, a.message);
+      if (a.mint) what.append(el("div", { class: "who" }, tokenLink(a.mint), a.dex ? ` · ${a.dex}` : ""));
+      return el("li", { class: view.seenActivity >= 0 && a.id > view.seenActivity ? "fresh" : "" },
+        el("span", { class: "when" }, new Date(a.at_ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })),
+        el("span", { class: "icon", style: `color:${kind.color}`, title: kind.label, "aria-label": kind.label }, kind.icon),
+        what,
+      );
+    }));
+  }
+  view.seenActivity = newest;
+}
+
+/// Clean tick values whose range always covers [min, max].
+function niceTicks(min, max, count = 4) {
+  if (min === max) { min -= 1e-3; max += 1e-3; }
+  const mag = Math.pow(10, Math.floor(Math.log10((max - min) / count)));
+  const steps = [1, 2, 2.5, 5, 10, 20].map((m) => m * mag);
+  const step = steps.find((s) => Math.ceil(max / s - 1e-9) - Math.floor(min / s + 1e-9) <= count) || steps[steps.length - 1];
+  const ticks = [];
+  for (let i = Math.floor(min / step + 1e-9); i <= Math.ceil(max / step - 1e-9); i++) ticks.push(Number((i * step).toPrecision(12)));
+  return ticks;
+}
+
+function renderChart(points) {
+  const svg = $("chart");
+  const tooltip = $("tooltip");
+  svg.replaceChildren();
+  tooltip.style.display = "none";
+  const width = svg.clientWidth || 800;
+  const height = 240;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  if (!points.length) {
+    const t = svgEl("text", { x: width / 2, y: height / 2, "text-anchor": "middle", class: "axis-text" });
+    t.textContent = "No closed positions in this range yet";
+    svg.append(t);
+    svg.setAttribute("aria-label", "Cumulative realized PnL: no closed positions in this range");
+    view.series = [];
+    return;
+  }
+  let running = 0;
+  const series = points.map((p) => ({ ...p, cum: (running += p.pnl) }));
+  view.series = series;
+  const narrow = width < 560;
+  const m = { top: 12, right: narrow ? 12 : 120, bottom: 28, left: 64 };
+  const tMin = series[0].t, tMax = series[series.length - 1].t;
+  const values = [0, ...series.map((s) => s.cum)];
+  const ticks = niceTicks(Math.min(...values), Math.max(...values));
+  const yMin = ticks[0], yMax = ticks[ticks.length - 1];
+  const x = (t) => tMax === tMin ? m.left + (width - m.left - m.right) / 2 : m.left + ((t - tMin) / (tMax - tMin)) * (width - m.left - m.right);
+  const y = (v) => m.top + (1 - (v - yMin) / (yMax - yMin)) * (height - m.top - m.bottom);
+  const digits = Math.max(0, Math.min(6, -Math.floor(Math.log10((yMax - yMin) / 4 || 1)) + 1));
+
+  for (const tick of ticks) {
+    svg.append(svgEl("line", { x1: m.left, x2: width - m.right, y1: y(tick), y2: y(tick), stroke: tick === 0 ? "var(--baseline)" : "var(--grid)", "stroke-width": 1 }));
+    const label = svgEl("text", { x: m.left - 8, y: y(tick) + 4, "text-anchor": "end", class: "axis-text" });
+    label.textContent = sol(tick, digits, tick !== 0);
+    svg.append(label);
+  }
+  const fmtTime = (t) => {
+    const date = new Date(t * 1000);
+    if (tMax - tMin > 86400) return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return date.toLocaleTimeString(undefined, tMax - tMin < 3600 ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } : { hour: "2-digit", minute: "2-digit" });
+  };
+  const xTicks = tMax === tMin ? [tMin] : [tMin, tMin + (tMax - tMin) / 2, tMax];
+  xTicks.forEach((t, i) => {
+    const label = svgEl("text", { x: x(t), y: height - 6, "text-anchor": xTicks.length === 1 ? "middle" : ["start", "middle", "end"][i], class: "axis-text" });
+    label.textContent = fmtTime(t);
+    svg.append(label);
+  });
+
+  const path = series.map((s, i) => `${i ? "L" : "M"}${x(s.t).toFixed(1)},${y(s.cum).toFixed(1)}`).join("");
+  svg.append(svgEl("path", { d: path, fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  const last = series[series.length - 1];
+  svg.append(svgEl("circle", { cx: x(last.t), cy: y(last.cum), r: 4, fill: "var(--series-1)", stroke: "var(--surface-1)", "stroke-width": 2 }));
+  const end = svgEl("text", { x: x(last.t) + 10, y: y(last.cum) + 4, class: "end-label" });
+  end.textContent = `${sol(last.cum, 4, true)} SOL`;
+  svg.append(end);
+  if (x(last.t) + 10 + end.getComputedTextLength() > width) {
+    // No room right of the end dot: place the label left of it, on the side away from
+    // the incoming line (below when the line descends into the dot, above otherwise).
+    const previous = series.length > 1 ? series[series.length - 2].cum : last.cum;
+    const below = previous >= last.cum ? y(last.cum) + 20 <= height - m.bottom : y(last.cum) - 12 < m.top;
+    end.setAttribute("x", x(last.t) - 8);
+    end.setAttribute("text-anchor", "end");
+    end.setAttribute("y", y(last.cum) + (below ? 18 : -10));
+  }
+  svg.setAttribute("aria-label", `Cumulative realized PnL over ${series.length} events, ending at ${sol(last.cum, 4, true)} SOL`);
+
+  const cross = svgEl("line", { y1: m.top, y2: height - m.bottom, stroke: "var(--baseline)", "stroke-width": 1, visibility: "hidden" });
+  const marker = svgEl("circle", { r: 4, fill: "var(--series-1)", stroke: "var(--surface-1)", "stroke-width": 2, visibility: "hidden" });
+  svg.append(cross, marker);
+
+  const show = (index) => {
+    const s = series[index];
+    view.focus = index;
+    cross.setAttribute("x1", x(s.t)); cross.setAttribute("x2", x(s.t)); cross.setAttribute("visibility", "visible");
+    marker.setAttribute("cx", x(s.t)); marker.setAttribute("cy", y(s.cum)); marker.setAttribute("visibility", "visible");
+    tooltip.replaceChildren(
+      el("div", { class: "muted" }, new Date(s.t * 1000).toLocaleString()),
+      el("div", {}, el("span", { class: "key" }), el("span", { class: "v" }, `${sol(s.cum, 5, true)} SOL`), " cumulative"),
+      el("div", { class: "muted" }, s.failedFee ? `failed transaction fee ${sol(s.pnl, 6, true)} SOL` : `${tokenLabel(s.mint)}: ${sol(s.pnl, 5, true)} SOL${s.pnlPct != null ? ` (${pct(s.pnlPct)})` : ""}${s.estimated ? " est." : ""}`),
+    );
+    tooltip.style.display = "block";
+    const wrap = $("chart-wrap").getBoundingClientRect();
+    const px = x(s.t) * (svg.getBoundingClientRect().width / width);
+    const left = Math.min(Math.max(px + 12, 0), wrap.width - tooltip.offsetWidth);
+    tooltip.style.left = `${px + 12 + tooltip.offsetWidth > wrap.width ? Math.max(px - tooltip.offsetWidth - 12, 0) : left}px`;
+    tooltip.style.top = "8px";
+  };
+  const hide = () => { view.focus = null; cross.setAttribute("visibility", "hidden"); marker.setAttribute("visibility", "hidden"); tooltip.style.display = "none"; };
+  const nearest = (clientX) => {
+    const rect = svg.getBoundingClientRect();
+    const px = (clientX - rect.left) * (width / rect.width);
+    let best = 0;
+    series.forEach((s, i) => { if (Math.abs(x(s.t) - px) < Math.abs(x(series[best].t) - px)) best = i; });
+    return best;
+  };
+  svg.onpointermove = (e) => show(nearest(e.clientX));
+  svg.onpointerleave = hide;
+  svg.onblur = hide;
+  svg.onfocus = () => show(view.focus ?? series.length - 1);
+  svg.onkeydown = (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const current = view.focus ?? series.length - 1;
+    show(Math.min(series.length - 1, Math.max(0, current + (e.key === "ArrowRight" ? 1 : -1))));
+  };
+}
+
+function renderPositions(positions, now) {
+  const body = $("positions");
+  // A position that is gone has been sold; forget its pending "Selling…" state.
+  const open = new Set(positions.map((p) => p.mint));
+  for (const m of [...view.selling]) if (!open.has(m)) view.selling.delete(m);
+  if (!positions.length) {
+    body.replaceChildren(el("tr", {}, el("td", { colspan: 9, class: "empty" }, "No open positions")));
+    $("sell-all").disabled = true;
+    return;
+  }
+  $("sell-all").disabled = false;
+  body.replaceChildren(...positions.map((p) => el("tr", {},
+    el("td", {}, tokenLink(p.mint)),
+    el("td", {}, p.dex),
+    el("td", { class: "num" }, duration(Math.max(0, now - p.opened_at))),
+    el("td", { class: "num" }, sol(p.entry_sol, 6)),
+    el("td", { class: "num" }, p.value_sol === null ? "pricing…" : sol(p.value_sol, 6)),
+    signedCell(p.pnl_percent, pct(p.pnl_percent)),
+    el("td", { class: "num" }, pct(p.peak_pnl_percent)),
+    el("td", {}, [p.paper ? "Paper" : "Live", p.take_profit_armed ? "trailing take profit armed" : null, p.ladder_step ? `ladder step ${p.ladder_step}` : null, p.sold_percent > 0 ? `${Math.round(p.sold_percent)}% sold` : null].filter(Boolean).join(" · ")),
+    el("td", {}, el("button", { type: "button", class: "row-btn", "data-sell": p.mint, disabled: view.selling.has(p.mint) ? "" : null, "aria-label": `Sell ${p.mint}` }, view.selling.has(p.mint) ? "Selling…" : "Sell")),
+  )));
+}
+
+function renderTradeSwitch(d) {
+  const on = !!d.trading;
+  $("trade-switch").classList.toggle("on", on);
+  $("trade-state").textContent = on ? `Trading${d.mode === "live" ? " (LIVE)" : " (dry run)"}` : "Paused";
+  $("trade-start").disabled = on || view.switching;
+  $("trade-stop").disabled = !on || view.switching;
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+async function setTrading(enabled) {
+  const d = view.data;
+  if (enabled && d && d.mode === "live" &&
+      !window.confirm(`Start LIVE trading? The bot will spend ${d.buy_sol} SOL of real funds on each launch it buys.`)) return;
+  const status = $("trade-status");
+  view.switching = true;
+  if (d) renderTradeSwitch(d);
+  try {
+    const body = await postJson("/api/trading", { enabled });
+    if (view.data) view.data.trading = body.trading;
+    status.className = "ok-text";
+    status.textContent = body.trading ? "Trading started." : "Trading stopped. Open positions are still managed.";
+  } catch (error) {
+    status.className = "err-text";
+    status.textContent = `Not changed: ${error.message}`;
+  } finally {
+    view.switching = false;
+    if (view.data) renderTradeSwitch(view.data);
+  }
+}
+
+/// Buys and sells that went through: landed, simulated successfully, or paper-sold.
+const isTrade = (r) => ["confirmed", "simulated", "paper"].includes(r.status);
+
+/// One row per token: its buys and sells folded into a single line.
+function groupByToken(trades) {
+  const groups = new Map();
+  for (const r of trades) {
+    let g = groups.get(r.mint);
+    if (!g) {
+      g = { mint: r.mint, dex: r.dex, buys: [], sells: [], solIn: 0, solOut: 0, wallet: null, last: r };
+      groups.set(r.mint, g);
+    }
+    if (r.t >= g.last.t) g.last = r;
+    if (r.action === "BUY") {
+      g.buys.push(r);
+      if (isTrade(r)) g.solIn += r.solIn || 0;
+    } else if (r.action === "SELL") {
+      g.sells.push(r);
+      g.solOut += r.solOut || 0;
+    }
+    if (r.walletChange !== null && r.walletChange !== undefined) g.wallet = (g.wallet || 0) + r.walletChange;
+  }
+  for (const g of groups.values()) {
+    // The position's own result: everything the sells returned against what those tokens
+    // cost. Averaging the sells' percentages instead would ignore their sizes, and a
+    // laddered exit sells unequal slices - a +26% first step on 30% of the position does
+    // not cover a -16% exit on the other 70%.
+    const cost = g.sells.reduce((sum, r) => sum + (r.solIn || 0), 0);
+    g.pnlPct = !g.sells.length ? null : cost > 0 ? ((g.solOut - cost) / cost) * 100 : null;
+    g.sellCost = cost;
+    g.buy = g.buys.find((r) => isTrade(r)) || g.buys[0] || null;
+    g.open = !!g.buy && isTrade(g.buy) && !g.sells.length;
+    // The row's time is when the token was bought (first recorded attempt without a buy).
+    g.boughtT = (g.buy || g.last).t;
+    g.status = g.buy && !isTrade(g.buy) && !g.sells.length ? g.buy.status : g.last.status;
+    g.reason = (g.sells.length ? g.sells[g.sells.length - 1].reason : g.buy && g.buy.reason) || "";
+  }
+  return [...groups.values()].sort((a, b) => b.boughtT - a.boughtT);
+}
+
+/// Page buttons: first, last, and the pages around the current one.
+function renderPager(pages) {
+  const nums = new Set([1, pages, pager.page - 1, pager.page, pager.page + 1].filter((n) => n >= 1 && n <= pages));
+  const items = [];
+  let last = 0;
+  for (const n of [...nums].sort((a, b) => a - b)) {
+    if (n - last > 1) items.push(el("span", { class: "gap", "aria-hidden": "true" }, "…"));
+    items.push(el("button", { type: "button", "data-page": String(n), "aria-current": n === pager.page ? "page" : null, "aria-label": `Page ${n}` }, String(n)));
+    last = n;
+  }
+  $("history-pages").replaceChildren(...items);
+  const pagerEl = $("history-pager");
+  pagerEl.querySelector('[data-page="first"]').disabled = pager.page <= 1;
+  pagerEl.querySelector('[data-page="prev"]').disabled = pager.page <= 1;
+  pagerEl.querySelector('[data-page="next"]').disabled = pager.page >= pages;
+  pagerEl.querySelector('[data-page="last"]').disabled = pager.page >= pages;
+  pagerEl.dataset.pages = String(pages);
+}
+
+function renderHistory(allTrades) {
+  const body = $("history");
+  const onlyTrades = $("history-filter").value === "trades";
+  const trades = onlyTrades ? allTrades.filter(isTrade) : allTrades;
+  const hidden = allTrades.length - trades.length;
+  const tokens = groupByToken(trades);
+  const pages = Math.max(1, Math.ceil(tokens.length / pager.size));
+  pager.page = Math.min(Math.max(1, pager.page), pages);
+  const start = (pager.page - 1) * pager.size;
+  const rows = tokens.slice(start, start + pager.size);
+  renderPager(pages);
+  $("history-note").textContent = [
+    tokens.length ? `${start + 1}–${start + rows.length} of ${tokens.length} token${tokens.length === 1 ? "" : "s"} (${trades.length} rows)` : "",
+    onlyTrades && hidden ? `${hidden} failed or timed-out attempt${hidden === 1 ? "" : "s"} hidden.` : "",
+  ].filter(Boolean).join(" · ");
+  if (!rows.length) {
+    body.replaceChildren(el("tr", {}, el("td", { colspan: 10, class: "empty" }, onlyTrades ? "No buys or sells in this range yet" : "No trades in this range yet")));
+    return;
+  }
+  body.replaceChildren(...rows.map((g) => {
+    const st = classifyStatus(g.status);
+    const label = g.open ? `${st.label} · open` : st.label;
+    const sig = g.buy && g.buy.signature;
+    const realTx = sig && !/^1+$/.test(sig);
+    const counts = `${g.buys.length} / ${g.sells.length}`;
+    return el("tr", {},
+      el("td", { title: g.sells.length ? `Last sell ${new Date(g.last.t * 1000).toLocaleString()}` : "No sell yet" }, new Date(g.boughtT * 1000).toLocaleString()),
+      el("td", {}, tokenLink(g.mint)),
+      el("td", { title: g.status }, el("span", { class: "status" }, el("span", { class: "icon", style: `color:${st.color}`, "aria-hidden": "true" }, st.icon), label)),
+      el("td", { class: "num" }, sol(g.solIn, 6)),
+      el("td", { class: "num" }, g.sells.length ? sol(g.solOut, 6) : el("span", { class: "muted" }, "—")),
+      signedCell(g.wallet, g.wallet === null ? "—" : sol(g.wallet, 6, true)),
+      signedCell(g.pnlPct, g.pnlPct === null ? "—" : pct(g.pnlPct)),
+      g.buy ? speedCell(g.buy) : el("td", { class: "num" }, el("span", { class: "muted" }, "—")),
+      el("td", { title: g.sells.map((r) => `${r.reason} ${pct(r.pnlPct)} on ${sol(r.solIn, 4)} SOL`).join(", ") }, g.reason),
+      el("td", { class: "num", title: `${g.buys.length} buy${g.buys.length === 1 ? "" : "s"}, ${g.sells.length} sell${g.sells.length === 1 ? "" : "s"}` },
+        realTx ? el("a", { href: `https://solscan.io/tx/${encodeURIComponent(sig)}`, target: "_blank", rel: "noopener", title: sig }, counts) : counts),
+    );
+  }));
+}
+
+function setConnection(live) {
+  $("app").classList.toggle("conn-lost", !live);
+  const conn = $("conn");
+  conn.replaceChildren(
+    el("span", { class: "live" },
+      el("span", { class: "dot", style: `background:${live ? "var(--good)" : "var(--warning)"}` }),
+      live ? "Live" : view.lastOk ? `Reconnecting… last update ${new Date(view.lastOk).toLocaleTimeString()}` : "Connecting to the bot…"),
+  );
+}
+
+function connect() {
+  const source = new EventSource("/api/events");
+  source.addEventListener("state", (event) => {
+    const d = JSON.parse(event.data);
+    if (d.trades) view.trades = d.trades;
+    view.data = d;
+    view.receivedAt = Date.now();
+    view.lastOk = Date.now();
+    setConnection(true);
+    const focused = document.activeElement === $("chart") ? view.focus : null;
+    render();
+    if (focused !== null && view.series && view.series.length) $("chart").focus();
+  });
+  source.onerror = () => {
+    setConnection(false);
+    // EventSource retries a dropped connection on its own, but gives up for good when a retry gets
+    // an error response (the proxy's 502 while the bot restarts). Then open a new one.
+    if (source.readyState === EventSource.CLOSED) setTimeout(connect, 2000);
+  };
+  source.onopen = () => { if (view.lastOk) setConnection(true); };
+}
+
+// Uptime ticks between pushes.
+setInterval(() => {
+  const up = $("uptime");
+  if (up && view.data) up.textContent = duration(view.data.uptime_secs + (Date.now() - view.receivedAt) / 1000);
+}, 1000);
+
+$("history-pager").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-page]");
+  if (!button || button.disabled) return;
+  const pages = Number($("history-pager").dataset.pages || 1);
+  const target = button.dataset.page;
+  pager.page = target === "first" ? 1 : target === "last" ? pages : target === "prev" ? pager.page - 1 : target === "next" ? pager.page + 1 : Number(target);
+  render();
+});
+try {
+  const saved = Number(localStorage.getItem("historyPageSize"));
+  if ([10, 25, 50, 100].includes(saved)) pager.size = saved;
+} catch (_) {}
+$("history-page-size").value = String(pager.size);
+$("history-page-size").addEventListener("change", (event) => {
+  pager.size = Number(event.target.value);
+  pager.page = 1;
+  try { localStorage.setItem("historyPageSize", String(pager.size)); } catch (_) {}
+  render();
+});
+$("history-filter").addEventListener("change", () => { pager.page = 1; });
+
+$("trade-start").addEventListener("click", () => setTrading(true));
+$("trade-stop").addEventListener("click", () => setTrading(false));
+
+async function requestSell(mints, url, body) {
+  for (const m of mints) view.selling.add(m);
+  render();
+  try {
+    await postJson(url, body);
+  } catch (error) {
+    for (const m of mints) view.selling.delete(m);
+    window.alert(`Sell not requested: ${error.message}`);
+    render();
+  }
+}
+$("positions").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sell]");
+  if (!button || button.disabled) return;
+  const mint = button.dataset.sell;
+  if (!window.confirm(`Sell all of ${mint} now?`)) return;
+  requestSell([mint], "/api/sell", { mint });
+});
+$("sell-all").addEventListener("click", () => {
+  const open = (view.data && view.data.positions) || [];
+  if (!open.length || !window.confirm(`Sell all ${open.length} open position${open.length === 1 ? "" : "s"} now?`)) return;
+  requestSell(open.map((p) => p.mint), "/api/sell-all", {});
+});
+
+$("buy-size").addEventListener("input", () => { view.buyDirty = true; $("buy-status").textContent = ""; });
+$("buy-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const status = $("buy-status");
+  const input = $("buy-size");
+  const sol = Number(input.value);
+  const d = view.data;
+  if (!Number.isFinite(sol) || sol <= 0) {
+    status.className = "err-text";
+    status.textContent = "Enter a positive SOL amount.";
+    return;
+  }
+  if (d && d.mode === "live" && !window.confirm(`Live trading: spend ${sol} SOL on every buy from now on?`)) return;
+  if (d && d.balance_sol !== null && sol > d.balance_sol && !window.confirm(`${sol} SOL is more than the wallet balance (${d.balance_sol.toFixed(4)} SOL). Buys will fail. Apply anyway?`)) return;
+  $("buy-apply").disabled = true;
+  try {
+    const response = await fetch("/api/buy-size", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sol }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+    view.buyDirty = false;
+    input.value = body.buy_sol;
+    status.className = "ok-text";
+    status.textContent = `Buying ${body.buy_sol} SOL per snipe${body.saved_to_env ? " (saved to .env)" : " (not saved to .env; it resets on restart)"}.`;
+  } catch (error) {
+    status.className = "err-text";
+    status.textContent = `Not changed: ${error.message}`;
+  } finally {
+    $("buy-apply").disabled = false;
+  }
+});
+
+for (const [id, key] of [["feed-filter", "feedFilter"], ["history-filter", "historyFilter"]]) {
+  const select = $(id);
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved && [...select.options].some((o) => o.value === saved)) select.value = saved;
+  } catch (_) {}
+  select.addEventListener("change", () => {
+    try { localStorage.setItem(key, select.value); } catch (_) {}
+    render();
+  });
+}
+$("range").addEventListener("change", render);
+$("history-mode").addEventListener("change", () => { view.historyModeChosen = true; render(); });
+$("dex").addEventListener("change", render);
+new ResizeObserver(() => render()).observe($("chart-wrap"));
+setConnection(false);
+connect();
+</script>
+</body>
+</html>

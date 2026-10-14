@@ -1,0 +1,19 @@
+{
+  "name": "bigboss-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "bigboss's web dashboard: status, open positions, trade history, the snipe funnel and two controls (trading on/off, buy size), behind username + password. Reads data/bigboss.sqlite read-only; serves on 127.0.0.1; Caddy provides HTTPS.",
+  "scripts": {
+    "start": "node --no-warnings src/server.ts",
+    "user": "node --no-warnings src/users-cli.ts",
+    "test": "node --no-warnings --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@node-rs/argon2": "2.2.1",
+    "fastify": "5.12.5"
+  }
+}

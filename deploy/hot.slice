@@ -1,0 +1,6 @@
+# The bot's slice: cores 0-7. Every other slice is held to 0-3 (deploy/install.sh).
+[Unit]
+Description=Slice for the sniper bot (cores 4-7 are reserved for it)
+
+[Slice]
+AllowedCPUs=0-7

@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bigboss</title>
+<link rel="icon" type="image/jpeg" href="/logo.jpg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img class="brand-logo" src="/logo.jpg" alt="" width="36" height="36"><span>bigboss</span></div>
+    <div id="statusbar" class="statusbar" aria-live="polite">Loading…</div>
+    <div class="user"><span id="who" class="muted"></span> <button id="logout" class="btn small">Log out</button></div>
+  </header>
+
+  <!-- The bot not answering, or no store yet (on every page). -->
+  <div id="alert" class="alert" role="alert" hidden></div>
+
+  <!-- On every page, side by side (stacked on a phone, controls first): the controls and the calendar. -->
+  <div class="top-row">
+    <section class="controls panel" aria-labelledby="controls-title">
+      <h2 id="controls-title" class="sr-only">Controls</h2>
+      <!-- The owner's two controls: trading on/off and the buy size. -->
+      <div class="control-row">
+        <span id="trading-state" class="trading-state">Trading –</span>
+        <button class="btn" data-action="trading-on">Start trading</button>
+        <button class="btn danger" data-action="trading-off">Stop trading</button>
+      </div>
+      <form id="size-form" class="control-row size-row" novalidate>
+        <label for="size-input">Buy size</label>
+        <input id="size-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="size-error size-note">
+        <span>SOL</span>
+        <button id="size-set" class="btn" type="submit">Set</button>
+      </form>
+      <p id="size-error" class="error small" aria-live="polite" hidden></p>
+      <p id="size-note" class="muted small"></p>
+      <!-- The overview: totals for the Trades page's Mode, Venue, Run and Deployer, as the calendar's. -->
+      <section class="overview" aria-labelledby="overview-title">
+        <h3 id="overview-title" class="overview-title">Overview <span id="overview-scope" class="muted small"></span></h3>
+        <dl class="ov-tiles">
+          <div class="ov-tile" id="ov-total-tile"><dt>Total PnL</dt><dd id="ov-total">–</dd></div>
+          <div class="ov-tile" id="ov-realized-tile"><dt>Realized</dt><dd id="ov-realized">–</dd></div>
+          <div class="ov-tile" id="ov-unrealized-tile"><dt>Unrealized</dt><dd id="ov-unrealized">–</dd></div>
+          <div class="ov-tile" id="ov-today-tile"><dt>Today</dt><dd id="ov-today">–</dd></div>
+          <div class="ov-tile" id="ov-rent-tile"><dt>Rent today</dt><dd id="ov-rent">–</dd></div>
+          <div class="ov-tile" id="ov-winrate-tile"><dt>Win rate</dt><dd id="ov-winrate">–</dd></div>
+          <div class="ov-tile" id="ov-trades-tile"><dt>Trades</dt><dd id="ov-trades">–</dd></div>
+          <div class="ov-tile" id="ov-open-tile"><dt>Open</dt><dd id="ov-open">–</dd></div>
+        </dl>
+      </section>
+      <!-- The wallet card: the balance read by the public key only, USD as the reference. -->
+      <p id="wallet" class="wallet" hidden></p>
+    </section>
+
+    <!-- The wallet's change per UTC day, for the Trades page's Mode, Venue, Run and Deployer. -->
+    <section id="calendar-panel" class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="cal-title">
+            <h2>
+              <svg class="cal-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
+                <path d="M3.5 10h17M8 3v4M16 3v4"></path>
+              </svg>
+              <span id="cal-month">Calendar</span>
+            </h2>
+            <button id="cal-prev" class="btn small" type="button" aria-label="Previous month">‹</button>
+            <button id="cal-next" class="btn small" type="button" aria-label="Next month">›</button>
+            <span id="cal-scope" class="muted small"></span>
+          </div>
+        </div>
+      </div>
+      <div class="cal-wrap">
+        <div class="cal-weekdays" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <ol id="cal" class="cal-grid"></ol>
+        <div id="cal-tip" class="cal-tip" role="tooltip" hidden></div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="tabs" aria-label="Pages">
+    <button class="tab" data-tab="trades">Trades</button>
+    <button class="tab" data-tab="snipe">Snipe</button>
+    <button class="tab" data-tab="activity">Live activity</button>
+    <button class="tab" data-tab="rejections">Rejections</button>
+    <button class="tab" data-tab="runs">Runs</button>
+    <button class="tab" data-tab="audit">Audit log</button>
+  </nav>
+
+  <div data-page="trades">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Open positions</h2>
+          <p class="muted small">As the bot holds them now (its mode only). Sells are the bot's exit rule's; this dashboard does not sell.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="open">
+          <thead><tr>
+            <th>Token</th><th>Venue</th><th class="num">Held</th><th class="num">Entry SOL</th>
+            <th class="num">Value SOL</th><th class="num">PnL</th><th class="num">Peak</th><th class="num">Sold</th><th class="num">Held for</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <p id="open-empty" class="empty">No open positions</p>
+      </div>
+    </section>
+
+    <section id="history-panel" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Trade history <span class="unit" title="Amounts in SOL; hover one for USD at the trade's hour">SOL</span></h2>
+          <p class="muted small">One row per coin (a coin sold in steps is one row; click it for every step).</p>
+        </div>
+        <div class="filters">
+          <label>Mode <select id="mode">
+            <option value="paper">Paper</option><option value="live">Live</option>
+          </select></label>
+          <label>Venue <select id="venue">
+            <option value="all">All</option><option value="pumpfun">pump.fun</option><option value="pumpswap">PumpSwap</option>
+          </select></label>
+          <label>Run <select id="run"><option value="">Current</option><option value="all">All runs</option></select></label>
+          <label>Deployer <select id="deployer"><option value="">All</option></select></label>
+          <label>Show <select id="show">
+            <option value="all">Buys &amp; sells</option>
+            <option value="open">Buys only (open)</option>
+            <option value="closed">Sells (closed)</option>
+            <option value="failed">Failed / stuck</option>
+          </select></label>
+        </div>
+      </div>
+      <div id="history-summary" class="summary"></div>
+      <button id="history-new" class="pill" hidden></button>
+      <div class="table-wrap">
+        <table id="history">
+          <thead><tr>
+            <th><button class="sort" type="button" data-sort="last_active">Token / Last active</button></th>
+            <th class="num">Unrealized</th>
+            <th class="num"><button class="sort" type="button" data-sort="realized">Realized profit</button></th>
+            <th class="num"><button class="sort" type="button" data-sort="total">Total profit</button></th>
+            <th class="num"><button class="sort" type="button" data-sort="balance">Balance</button></th>
+            <th class="num">Position %</th>
+            <th class="num">Holding</th>
+            <th class="num"><button class="sort" type="button" data-sort="bought">Bought</button></th>
+            <th class="num"><button class="sort" type="button" data-sort="sold">Sold</button></th>
+            <th class="num">TXs</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <p id="history-empty" class="empty">No trades yet</p>
+      </div>
+      <div class="table-foot">
+        <span id="history-foot"></span>
+        <nav id="history-pager" class="pager" aria-label="Trade history pages"></nav>
+        <label class="rows-select">Rows <select id="history-rows">
+          <option>10</option><option selected>25</option><option>50</option><option>100</option>
+        </select></label>
+      </div>
+    </section>
+  </div>
+
+  <section id="snipe-panel" class="panel" data-page="snipe" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Snipe</h2>
+        <p class="muted">What the bot saw and decided over the window: every launch and graduation by venue; what the followed
+          deployers' launches became (bought, skipped with the reason, paused); those deployers' records; the fee engine's
+          leader classes; the distance and region (LEADER_REGIONS) skips; the bundle window.</p>
+      </div>
+      <div class="filters">
+        <label>Hours <select id="snipe-hours">
+          <option value="1">1</option><option value="6">6</option><option value="24" selected>24</option><option value="48">48</option><option value="168">7 days</option>
+        </select></label>
+        <label>Venue <select id="snipe-venue">
+          <option value="all">All</option><option value="pumpfun">pump.fun</option><option value="pumpswap">PumpSwap</option>
+        </select></label>
+      </div>
+    </div>
+    <div id="snipe-summary" class="summary"></div>
+    <div class="grid2">
+      <div>
+        <h3>Seen</h3>
+        <div class="table-wrap">
+          <table id="snipe-seen">
+            <thead><tr><th>Venue</th><th>Kind</th><th class="num">Seen</th><th class="num">Followed</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h3>Followed launches' verdicts</h3>
+        <div class="table-wrap">
+          <table id="snipe-verdicts">
+            <thead><tr><th>Verdict</th><th class="num">Launches</th><th class="num">Share</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h3>Why followed launches were skipped</h3>
+        <div class="table-wrap">
+          <table id="snipe-skips">
+            <thead><tr><th>Reason</th><th class="num">Launches</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Fee engine: leader classes</h3>
+        <div class="table-wrap">
+          <table id="snipe-classes">
+            <thead><tr><th>Class</th><th class="num">Launches</th><th class="num">Followed</th><th class="num">Ours</th>
+              <th class="num">First</th><th class="num">Our CU price p50</th><th class="num">First rival p50</th><th class="num">Our fee p50</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h3>Distance and region skips</h3>
+        <div class="table-wrap">
+          <table id="snipe-route">
+            <thead><tr><th>Reason</th><th>Class</th><th class="num">Launches</th><th class="num">RTT</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="snipe-region" class="summary"></div>
+        <h3>Bundle window</h3>
+        <div id="snipe-bundle" class="summary"></div>
+      </div>
+    </div>
+    <h3>Followed deployers</h3>
+    <div class="table-wrap">
+      <table id="snipe-deployers">
+        <thead><tr><th>Deployer</th><th>Follow</th><th class="num">Launches</th><th class="num">Bought</th><th class="num">Skipped</th>
+          <th class="num">Paused</th><th class="num">Best score</th><th class="num">No-buyer record</th><th class="num">Replayed results</th><th class="num">Last</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="snipe-deployers-empty" class="empty">No followed launches in this window</p>
+    </div>
+    <div class="panel-head">
+      <h3>Followed launches</h3>
+      <div class="filters"><label>Verdict <select id="snipe-verdict">
+        <option value="all">All</option><option value="bought">Bought</option><option value="buy">Buy decided</option>
+        <option value="buy_failed">Buy failed</option><option value="skip">Skipped</option><option value="paused">Paused</option><option value="seen">No verdict</option>
+      </select></label></div>
+    </div>
+    <button id="snipe-new" class="pill" hidden></button>
+    <div class="table-wrap">
+      <table id="snipe">
+        <thead><tr><th>Seen</th><th>Token</th><th>Venue</th><th>Deployer</th><th>Follow</th><th class="num">Dev buy</th>
+          <th class="num">Score</th><th>Verdict</th><th>Reason</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="snipe-empty" class="empty">No followed launches yet</p>
+    </div>
+    <div class="table-foot">
+      <span id="snipe-foot"></span>
+      <nav id="snipe-pager" class="pager" aria-label="Followed launch pages"></nav>
+      <label class="rows-select">Rows <select id="snipe-rows">
+        <option>10</option><option selected>25</option><option>50</option><option>100</option>
+      </select></label>
+    </div>
+  </section>
+
+  <section id="activity-panel" class="panel" data-page="activity" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Live activity</h2>
+        <p class="muted">Every detection, skip, buy, sell and setting change the bot logged, newest first.</p>
+      </div>
+      <div class="filters">
+        <label>Run <select id="activity-run"><option value="">Current</option><option value="all">All runs</option></select></label>
+        <label>Kind <select id="kind">
+          <option value="all">All</option><option value="Detected">Detected</option><option value="Skipped">Skipped</option>
+          <option value="Bought">Bought</option><option value="BuyFailed">Buy failed</option><option value="Sold">Sold</option>
+          <option value="SellFailed">Sell failed</option><option value="Settings">Settings</option>
+        </select></label>
+        <label>Venue <select id="activity-venue">
+          <option value="all">All</option><option value="pumpfun">pump.fun</option><option value="pumpswap">PumpSwap</option>
+        </select></label>
+      </div>
+    </div>
+    <button id="activity-new" class="pill" hidden></button>
+    <div class="table-wrap">
+      <table id="activity">
+        <thead><tr><th>Time</th><th>Kind</th><th>Venue</th><th>Token</th><th>Message</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="activity-empty" class="empty">No activity recorded yet</p>
+    </div>
+    <div class="table-foot">
+      <span id="activity-foot"></span>
+      <nav id="activity-pager" class="pager" aria-label="Activity pages"></nav>
+      <label class="rows-select">Rows <select id="activity-rows">
+        <option>10</option><option selected>25</option><option>50</option><option>100</option>
+      </select></label>
+    </div>
+  </section>
+
+  <section id="rejections-panel" class="panel" data-page="rejections" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Rejections</h2>
+        <p class="muted">Every launch counts once, under what the bot decided: paused, the rule that skipped it (in the bot's
+          order), or "buy decided". "No verdict" = seen but not judged (yet). Remaining = launches still in after each step.</p>
+      </div>
+      <div class="filters">
+        <label>Hours <select id="rej-hours">
+          <option value="1">1</option><option value="6">6</option><option value="24" selected>24</option><option value="48">48</option><option value="168">7 days</option>
+        </select></label>
+        <label>Venue <select id="rej-venue">
+          <option value="all">All</option><option value="pumpfun">pump.fun</option><option value="pumpswap">PumpSwap</option>
+        </select></label>
+      </div>
+    </div>
+    <p id="rejections-empty" class="empty">No launches in this window</p>
+    <div id="rejections-body" hidden>
+      <h3>Funnel</h3>
+      <div class="table-wrap">
+        <table id="funnel">
+          <thead><tr><th>Step</th><th class="num">Launches removed</th><th class="num">Share</th><th class="num">Remaining</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3>Per hour</h3>
+      <div class="table-wrap">
+        <table id="funnel-hours"><thead><tr></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="panel-head">
+        <h3>Samples</h3>
+        <div class="filters"><label>Step <select id="rej-step"></select></label></div>
+      </div>
+      <div class="table-wrap">
+        <table id="funnel-samples">
+          <thead><tr><th>Time</th><th>Token</th><th>Venue</th><th>Kind</th><th>Followed</th><th class="num">Dev buy</th>
+            <th class="num">Score</th><th>Reason</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="runs-panel" class="panel" data-page="runs" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Runs</h2>
+        <p class="muted">One row per bot start (and imported history), newest first, with the switches it ran with. Net = its
+          closed positions' wallet change.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="runs">
+        <thead><tr><th>Run</th><th>Mode</th><th>Started</th><th>Stopped</th><th class="num">Positions</th><th class="num">Closed</th>
+          <th class="num">Net SOL</th><th>Switches</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="runs-empty" class="empty">No runs yet</p>
+    </div>
+  </section>
+
+  <section id="audit-panel" class="panel" data-page="audit" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Audit log</h2>
+        <p class="muted">Every login attempt and every control call made from this dashboard, newest first.</p>
+      </div>
+    </div>
+    <button id="audit-new" class="pill" hidden></button>
+    <div class="table-wrap">
+      <table id="audit">
+        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Result</th><th>From</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="audit-empty" class="empty">No entries yet</p>
+    </div>
+    <div class="table-foot">
+      <span id="audit-foot"></span>
+      <nav id="audit-pager" class="pager" aria-label="Audit log pages"></nav>
+      <label class="rows-select">Rows <select id="audit-rows">
+        <option>10</option><option selected>25</option><option>50</option><option>100</option>
+      </select></label>
+    </div>
+  </section>
+
+  <!-- A trade row's orders (every sell step), sliding in from the right. -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-shade"></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <div class="drawer-head">
+        <div>
+          <h2 id="drawer-title"></h2>
+          <p id="drawer-sub" class="muted small"></p>
+          <p id="drawer-context" class="muted small"></p>
+        </div>
+        <button id="drawer-close" class="btn small" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="table-wrap">
+        <table id="orders">
+          <thead><tr>
+            <th>Type</th><th class="num">MC</th><th class="num">Amount</th><th class="num">SOL</th>
+            <th class="num">Wallet Δ</th><th class="num">Fees</th><th>Time (UTC)</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <p id="orders-empty" class="empty" hidden></p>
+      </div>
+      <div id="exits-block" hidden>
+        <h3>Exit rule's decisions</h3>
+        <div class="table-wrap">
+          <table id="exits">
+            <thead><tr><th>Time (UTC)</th><th>Reason</th><th class="num">Share</th><th class="num">Value</th><th class="num">Peak</th>
+              <th class="num">Held</th><th class="num">Net behind</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="panel modal-box">
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <div class="modal-buttons">
+        <button id="modal-cancel" class="btn">Cancel</button>
+        <button id="modal-ok" class="btn danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

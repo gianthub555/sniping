@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Blocks commits that would put credentials in git: .env files, keys/, PEM files, and any staged
+# text holding a Solana keypair (a JSON byte array or base58, 64 bytes whose second half is the
+# public key of the first). Installed with: git config core.hooksPath githooks
+exec python3 "$(git rev-parse --show-toplevel)/githooks/check_secrets.py"

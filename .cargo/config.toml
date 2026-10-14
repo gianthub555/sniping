@@ -1,0 +1,5 @@
+# Speed (2026-10-11): the binary is built for this VM's CPU (Haswell: AVX2, BMI2). Measured on the
+# copy bot's signatures: about 3%. The bot builds and runs on this machine only; another CPU model
+# needs this line changed (or removed) before building.
+[build]
+rustflags = ["-C", "target-cpu=native"]

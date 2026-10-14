@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bigboss · Log in</title>
+<link rel="icon" type="image/jpeg" href="/logo.jpg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+  <form id="login" class="panel login-box" autocomplete="on">
+    <img class="login-logo" src="/logo.jpg" alt="I'm a Big Boss" width="160" height="160">
+    <h1>bigboss</h1>
+    <p class="muted">Log in to see and control the bot.</p>
+    <label>Username <input name="username" autocomplete="username" required autofocus></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit" class="btn primary">Log in</button>
+    <p id="msg" class="error" role="alert"></p>
+  </form>
+  <script src="/login.js"></script>
+</body>
+</html>

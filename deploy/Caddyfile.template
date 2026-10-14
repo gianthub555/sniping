@@ -1,0 +1,29 @@
+# Written by scripts/dashboard-caddy.sh at every Caddy start, from deploy/Caddyfile.template in the
+# bigboss repo: edit the template, not this file.
+#
+# The dashboard over HTTPS on the server's public IP (__PUBLIC_IP__), to 127.0.0.1:8790. Only TCP
+# 443: no plain-HTTP listener (no redirect, no HTTP challenge), no HTTP/3 (UDP). The certificate:
+# Let's Encrypt's short-lived profile (IP certificates, ~6 days, renewed by Caddy), validated over
+# 443 (TLS-ALPN). The admin API stays on localhost. Caddy's own messages go to the journal;
+# logins and controls are in the dashboard's audit log.
+{
+	admin localhost:2019
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+https://__PUBLIC_IP__ {
+	tls {
+		issuer acme {
+			profile shortlived
+			disable_http_challenge
+		}
+	}
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+	reverse_proxy 127.0.0.1:8790
+}

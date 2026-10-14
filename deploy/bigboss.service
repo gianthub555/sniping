@@ -1,0 +1,31 @@
+# The sniper bot (C4). Installed by deploy/install.sh.
+# It runs in hot.slice, the only slice allowed on cores 4-7: its hot threads pin themselves to
+# 5-7 (HOT_CORES), its lane threads to 4 (HOT_LANE_CORE), and its other threads stay on 0-3.
+# Everything else on the machine (system.slice, user.slice, init.scope) is held to cores 0-3.
+[Unit]
+Description=bigboss sniper bot
+After=network-online.target shredstream-proxy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Documents/bigboss
+ExecStart=/home/ubuntu/Documents/bigboss/target/release/sniper-bot
+Slice=hot.slice
+CPUAffinity=0-7
+Restart=always
+RestartSec=3
+# The bot stops on SIGINT (as with Ctrl-C), finishing what it was doing.
+KillSignal=SIGINT
+TimeoutStopSec=20
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+# The in-process shred engine (ENGINE_INPROC, ported from pumpfeed, which no longer runs): packet
+# capture of the proxy's input (NET_RAW), a forced receive buffer and busy polling (NET_ADMIN).
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+StandardOutput=append:/home/ubuntu/Documents/bigboss/logs/bot.log
+StandardError=append:/home/ubuntu/Documents/bigboss/logs/bot.log
+
+[Install]
+WantedBy=multi-user.target
