@@ -100,7 +100,9 @@ pub const SMALL_BET_SHARE: f64 = 0.65;
 /// +0.20 at 20%, -0.28 with no guard. With a one-sell exit about 20% did best (+1.03 to +1.11).
 /// 1.25% again: the 28 Sep rules restored on 2026-10-07 (the owner's instruction, paper only).
 /// 5% since 2026-10-14 (the owner's call, for the Frankfurt paper and live test; Germany stays 1.25%).
-pub const BUY_SLIPPAGE_PERCENT: f64 = 5.0;
+/// 10% since 2026-10-14 evening (the owner's call, after live buys landed behind 1-5 snipers and
+/// failed the 5% guard with pump.fun's 6042).
+pub const BUY_SLIPPAGE_PERCENT: f64 = 10.0;
 /// The buy accepts one fast buyer ahead of it: at most this much SOL put into the curve by others
 /// (after fees) on top of the dev's bundle, which is already in the quote. The owner's rule (25
 /// Sep). A single fast buyer puts in a median 2.93 SOL (p75 2.96: "3 SOL" less the fee). Replayed
