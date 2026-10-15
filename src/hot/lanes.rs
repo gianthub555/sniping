@@ -772,7 +772,10 @@ fn run_http_io(lanes: Vec<(usize, Arc<HttpTarget>, Arc<[Conn; 2]>)>) {
                     while let Some((status, body)) = take_response(&mut r.buf) {
                         let sent = conn.lock().pop();
                         let ping = sent.is_some_and(|(_, p)| p);
-                        let bad = !(200..300).contains(&status) || body.contains("\"error\"");
+                        // A ping counts by its HTTP status only: Everstake's getHealth ping is
+                        // answered "method not found" by design (841 "refused" pings on 15 Oct,
+                        // every transaction accepted).
+                        let bad = !(200..300).contains(&status) || (!ping && body.contains("\"error\""));
                         if let Some((t, _)) = sent {
                             let rtt = t_read.saturating_sub(t);
                             if ping {
@@ -1441,8 +1444,9 @@ fn everstake_direct() -> bool {
 /// The ping a plain-HTTP lane sends while idle, and how often.
 fn http_ping(lane: usize) -> (&'static str, u64) {
     match lane {
-        // Helius: a ping after 5 s idle (its docs).
-        LANE_HELIUS => ("/ping", 5_000_000_000),
+        // Helius: a ping after 2.5 s idle. At 5 s (its docs' figure) the server closed idle
+        // connections first and 5 of 16 buy copies on 15 Oct came back "408 Request Time-out".
+        LANE_HELIUS => ("/ping", 2_500_000_000),
         // Everstake documents no health route; its keep-alive interval is 10 s.
         LANE_EVERSTAKE => ("/", 10_000_000_000),
         LANE_ZEROSLOT => ("/health", 15_000_000_000),

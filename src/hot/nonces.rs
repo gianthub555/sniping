@@ -245,13 +245,27 @@ async fn fetch(index: u8, min_slot: u64) -> Option<([u8; 32], u64)> {
         min_context_slot: Some(min_slot),
         ..Default::default()
     };
-    match RPC_CLIENT.get_ui_account_with_config(&m.accounts[index as usize], config).await {
-        Ok(r) => r.value.and_then(|a| a.data.decode()).and_then(|d| nonce::parse(&d)).map(|(_, v)| (v.to_bytes(), r.context.slot)),
-        Err(e) => {
-            warn!("nonce account {}: {e:#}", m.accounts[index as usize]);
-            None
+    // A node not yet at `min_slot` answers "Minimum context slot has not been reached": asked again
+    // every 200 ms for up to 5 s, it gets there (confirmed trails the landing by ~1 s). Giving up at
+    // once left the account in use: on 15 Oct the pool had no free account 120 times in an hour.
+    for attempt in 0..25 {
+        match RPC_CLIENT.get_ui_account_with_config(&m.accounts[index as usize], config.clone()).await {
+            Ok(r) => return r.value.and_then(|a| a.data.decode()).and_then(|d| nonce::parse(&d)).map(|(_, v)| (v.to_bytes(), r.context.slot)),
+            Err(e) if attempt < 24 && min_slot_not_reached(&format!("{e:#}")) => {
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+            Err(e) => {
+                warn!("nonce account {}: {e:#}", m.accounts[index as usize]);
+                return None;
+            }
         }
     }
+    None
+}
+
+/// Whether an RPC error is the node not having reached the request's minimum context slot yet.
+fn min_slot_not_reached(error: &str) -> bool {
+    error.contains("Minimum context slot has not been reached") || error.contains("-32016")
 }
 
 async fn read(index: u8, min_slot: u64) {
@@ -378,4 +392,17 @@ pub fn report() -> Option<String> {
         s.cancelled,
         s.released_unsent
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_node_behind_the_slot_is_asked_again_and_other_errors_are_not() {
+        assert!(min_slot_not_reached("AccountNotFound: pubkey=72G2d1: RPC response error -32016: Minimum context slot has not been reached; "));
+        assert!(min_slot_not_reached("RPC response error -32016: whatever"));
+        assert!(!min_slot_not_reached("RPC response error -32602: Invalid param: could not find account"));
+        assert!(!min_slot_not_reached("error sending request: connection refused"));
+    }
 }
