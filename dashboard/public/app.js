@@ -1092,9 +1092,10 @@ const tables = {
 for (const t of Object.values(tables)) Object.assign(t, { page: 1, rows: DEFAULT_ROWS, base: null, seq: 0 });
 const tableOf = (name) => Object.values(tables).find((t) => t.tab === name);
 
-/** The run sent to the API: the current run (the newest start) unless another is chosen. */
+/** The run sent to the API: every run (the whole history) unless one is chosen. The current run
+ * alone hid all earlier trades after each restart (15 Oct). */
 function selectedRun() {
-  return run === "" ? last?.current_run?.run_id || "all" : run;
+  return run === "" ? "all" : run;
 }
 
 async function load(t, live = false) {
